@@ -87,3 +87,13 @@ temp/
 tmp/
 *.tmp
 *.temp
+
+# Documentation for local reference only (不需要上传到GitHub的文档)
+CHANGES.md
+CODE_CHANGES.md
+COMPLETION_REPORT.txt
+QUICK_GUIDE.md
+UI_GUIDE.md
+PROJECT_SUMMARY.md
+DOCUMENTATION.md
+START_HERE.md

@@ -388,8 +388,8 @@ class WeChatAutomationGUI(QMainWindow):
         """)
         
         # 添加各个功能页面
-        self.content_stack.addWidget(self.create_message_broadcast_tab())
         self.content_stack.addWidget(self.create_moments_tab())
+        self.content_stack.addWidget(self.create_message_broadcast_tab())
         self.content_stack.addWidget(self.create_settings_tab())
         
         content_layout.addWidget(self.content_stack, 1)  # 右侧内容区域占据剩余空间
@@ -461,8 +461,8 @@ class WeChatAutomationGUI(QMainWindow):
         
         # 导航按钮列表
         nav_items = [
-            ("📤 群发消息", 0),
-            ("💖 朋友圈", 1),
+            ("💖 朋友圈", 0),
+            ("📤 群发消息", 1),
             ("⚙️ 设置", 2)
         ]
         
@@ -760,9 +760,45 @@ class WeChatAutomationGUI(QMainWindow):
         # 功能说明
         info_frame = self.create_info_frame(
             "👍 点赞和评论",
-            "⑴支持多个用户英文逗号分隔如：张三,李四,王五"
+            "⑴可选择给所有人点赞或给特定人点赞\n⑵给特定人点赞时，支持多个用户英文逗号分隔如：张三,李四,王五\n⑶给所有人点赞时，可设置黑名单排除不想点赞的用户"
         )
         layout.addWidget(info_frame)
+        
+        # 点赞模式选择
+        mode_group = QGroupBox("点赞模式")
+        mode_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
+        mode_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: #FF9800;
+            }
+        """)
+        
+        mode_layout = QHBoxLayout(mode_group)
+        mode_layout.setSpacing(20)
+        
+        self.specific_users_radio = QRadioButton("只给特定人点赞")
+        self.specific_users_radio.setChecked(True)
+        self.specific_users_radio.setFont(QFont("Microsoft YaHei", 10))
+        self.specific_users_radio.toggled.connect(self.on_like_mode_changed)
+        
+        self.all_users_radio = QRadioButton("给所有人点赞（可设置黑名单）")
+        self.all_users_radio.setFont(QFont("Microsoft YaHei", 10))
+        
+        mode_layout.addWidget(self.specific_users_radio)
+        mode_layout.addWidget(self.all_users_radio)
+        mode_layout.addStretch()
+        
+        layout.addWidget(mode_group)
         
         # 输入区域
         input_group = QGroupBox("点赞设置")
@@ -798,16 +834,29 @@ class WeChatAutomationGUI(QMainWindow):
         name_layout.addWidget(self.moments_name_input)
         input_layout.addLayout(name_layout)
         
-        # 等待时间设置
+        # 黑名单输入（仅在给所有人点赞时显示）
+        blacklist_layout = QHBoxLayout()
+        blacklist_label = QLabel("黑名单:")
+        blacklist_label.setFont(QFont("Microsoft YaHei", 10))
+        blacklist_label.setFixedWidth(100)
+        
+        self.moments_blacklist_input = ModernLineEdit("输入不想点赞的用户名称，多个用英文逗号分隔")
+        self.moments_blacklist_input.setEnabled(False)
+        
+        blacklist_layout.addWidget(blacklist_label)
+        blacklist_layout.addWidget(self.moments_blacklist_input)
+        input_layout.addLayout(blacklist_layout)
+        
+        # 等待时间设置（改为秒）
         wait_time_layout = QHBoxLayout()
         wait_time_label = QLabel("点赞间隔:")
         wait_time_label.setFont(QFont("Microsoft YaHei", 10))
         wait_time_label.setFixedWidth(100)
         
         self.moments_wait_time_spinbox = QSpinBox()
-        self.moments_wait_time_spinbox.setRange(1, 10)  # 1-10分钟
-        self.moments_wait_time_spinbox.setValue(2)  # 默认3分钟
-        self.moments_wait_time_spinbox.setSuffix(" 分钟")
+        self.moments_wait_time_spinbox.setRange(1, 600)  # 1-600秒（10分钟）
+        self.moments_wait_time_spinbox.setValue(5)  # 默认5秒
+        self.moments_wait_time_spinbox.setSuffix(" 秒")
         self.moments_wait_time_spinbox.setFont(QFont("Microsoft YaHei", 10))
         self.moments_wait_time_spinbox.setStyleSheet("""
             QSpinBox {
@@ -882,7 +931,7 @@ class WeChatAutomationGUI(QMainWindow):
                 border-top-color: white;
             }
         """)
-        self.moments_wait_time_spinbox.setToolTip("设置每个用户点赞之间的间隔时间")
+        self.moments_wait_time_spinbox.setToolTip("设置每个用户点赞之间的间隔时间（秒）")
         
         wait_time_info = QLabel("(每个用户之间的等待时间)")
         wait_time_info.setFont(QFont("Microsoft YaHei", 9))
@@ -1040,6 +1089,21 @@ class WeChatAutomationGUI(QMainWindow):
         
         layout.addStretch()
         return moments_widget
+    
+    def on_like_mode_changed(self):
+        """处理点赞模式切换"""
+        if self.specific_users_radio.isChecked():
+            # 仅给特定人点赞模式
+            self.moments_name_input.setEnabled(True)
+            self.moments_name_input.setPlaceholderText("请输入要点赞的用户名称，多个用英文逗号分隔")
+            self.moments_blacklist_input.setEnabled(False)
+            self.moments_blacklist_input.setPlaceholderText("输入不想点赞的用户名称，多个用英文逗号分隔")
+        else:
+            # 给所有人点赞模式
+            self.moments_name_input.setEnabled(False)
+            self.moments_name_input.setPlaceholderText("给所有人点赞模式，此字段不需要")
+            self.moments_blacklist_input.setEnabled(True)
+            self.moments_blacklist_input.setPlaceholderText("输入不想点赞的用户名称，多个用英文逗号分隔（可留空）")
     
     def on_comment_checkbox_changed(self, state):
         """处理评论功能勾选框状态变化"""
@@ -1550,20 +1614,31 @@ class WeChatAutomationGUI(QMainWindow):
         # 重置停止标志
         self._stop_moments = False
         
-        user_names_input = self.moments_name_input.text().strip()
-        if not user_names_input:
-            QMessageBox.warning(self, "输入错误", "请输入要点赞的用户名称！")
-            return
+        # 判断点赞模式
+        is_specific_mode = self.specific_users_radio.isChecked()
         
-        # 解析多个用户名（用英文逗号分隔）
-        user_names = [name.strip() for name in user_names_input.split(',') if name.strip()]
-        if not user_names:
-            QMessageBox.warning(self, "输入错误", "请输入有效的用户名称！")
-            return
+        if is_specific_mode:
+            # 仅给特定人点赞模式
+            user_names_input = self.moments_name_input.text().strip()
+            if not user_names_input:
+                QMessageBox.warning(self, "输入错误", "请输入要点赞的用户名称！")
+                return
+            
+            # 解析多个用户名（用英文逗号分隔）
+            user_names = [name.strip() for name in user_names_input.split(',') if name.strip()]
+            if not user_names:
+                QMessageBox.warning(self, "输入错误", "请输入有效的用户名称！")
+                return
+            
+            blacklist = []
+        else:
+            # 给所有人点赞模式
+            user_names = []  # 不需要指定用户
+            blacklist_input = self.moments_blacklist_input.text().strip()
+            blacklist = [name.strip() for name in blacklist_input.split(',') if name.strip()] if blacklist_input else []
         
-        # 获取用户设置的等待时间（分钟）
-        wait_minutes = self.moments_wait_time_spinbox.value()
-        wait_seconds = wait_minutes * 60  # 转换为秒
+        # 获取用户设置的等待时间（秒）
+        wait_seconds = self.moments_wait_time_spinbox.value()
         
         # 获取评论设置
         enable_comment = self.enable_comment_checkbox.isChecked()
@@ -1578,9 +1653,16 @@ class WeChatAutomationGUI(QMainWindow):
             return
         
         # 显示启动信息
-        status_msg = f"🚀 启动朋友圈功能，准备为 {len(user_names)} 个用户点赞"
+        if is_specific_mode:
+            status_msg = f"🚀 启动朋友圈功能，准备为 {len(user_names)} 个用户点赞"
+        else:
+            status_msg = f"🚀 启动朋友圈功能，给所有人点赞"
+            if blacklist:
+                status_msg += f"（黑名单: {len(blacklist)} 人）"
+        
         if enable_comment:
             status_msg += " + 评论"
+        
         self.update_status(status_msg, "#FF9800")
         self.show_progress(True)
         self.start_moments_btn.setEnabled(False)
@@ -1638,103 +1720,114 @@ class WeChatAutomationGUI(QMainWindow):
                 # 第二步：进行点赞操作
                 # 使用已导入的pengyouquan_multi_dianzan_action函数
                 
-                # 使用多用户并发处理
-                self.update_status(f"👍 开始同时搜索并点赞 {len(user_names)} 个用户: {', '.join(user_names)}", "#FF9800")
-                
-                try:
-                    # 定义状态回调函数
-                    def status_update_callback(message):
-                        self.update_status(message, "#FF9800")
+                if is_specific_mode:
+                    # 仅给特定人点赞
+                    self.update_status(f"👍 开始同时搜索并点赞 {len(user_names)} 个用户: {', '.join(user_names)}", "#FF9800")
                     
-                    # 调用多用户并发点赞功能，传递等待时间参数、回调函数、评论参数和停止检查函数
-                    results = pengyouquan_multi_dianzan_action(user_names, wait_seconds, status_update_callback, enable_comment, comment_text, stop_flag_func=lambda: self._stop_moments)
-                    
-                    # 检查是否在操作过程中被停止
-                    if self._stop_moments:
-                        self.update_status("⏹️ 操作已停止", "#FF9800")
-                        return
-                    
-                    # 处理结果
-                    if results and isinstance(results, dict):
-                         success_count = results.get('success_count', 0)
-                         failed_count = results.get('failed_count', 0)
-                         failed_names = results.get('failed_names', [])
-                         found_users = results.get('found_users', [])
-                         not_found_users = results.get('not_found_users', [])
-                         
-                         # 显示成功的用户
-                         for user_name in found_users:
-                             self.update_status(f"✅ 成功给 {user_name} 点赞", "#4CAF50")
-                         
-                         # 显示失败的用户
-                         for user_name in failed_names:
-                             self.update_status(f"❌ 未找到用户或点赞失败: {user_name}", "#f44336")
-                    else:
-                        # 如果多用户功能失败，回退到单用户模式
-                        self.update_status("⚠️ 多用户模式失败，回退到单用户模式", "#FF9800")
-                        # 使用已导入的pengyouquan_dianzan_action函数
+                    try:
+                        # 定义状态回调函数
+                        def status_update_callback(message):
+                            self.update_status(message, "#FF9800")
                         
-                        # 逐个处理每个用户
-                        for i, user_name in enumerate(user_names, 1):
-                            # 检查是否需要停止
-                            if self._stop_moments:
-                                self.update_status("⏹️ 用户停止了朋友圈操作", "#FF9800")
-                                break
-                                
-                            self.update_status(f"👍 ({i}/{len(user_names)}) 正在查找并点赞: {user_name}", "#FF9800")
+                        # 调用多用户并发点赞功能，传递等待时间参数、回调函数、评论参数和停止检查函数
+                        results = pengyouquan_multi_dianzan_action(user_names, wait_seconds, status_update_callback, enable_comment, comment_text, stop_flag_func=lambda: self._stop_moments)
+                        
+                        # 检查是否在操作过程中被停止
+                        if self._stop_moments:
+                            self.update_status("⏹️ 操作已停止", "#FF9800")
+                            return
+                        
+                        # 处理结果
+                        if results and isinstance(results, dict):
+                             success_count = results.get('success_count', 0)
+                             failed_count = results.get('failed_count', 0)
+                             failed_names = results.get('failed_names', [])
+                             found_users = results.get('found_users', [])
+                             not_found_users = results.get('not_found_users', [])
+                             
+                             # 显示成功的用户
+                             for user_name in found_users:
+                                 self.update_status(f"✅ 成功给 {user_name} 点赞", "#4CAF50")
+                             
+                             # 显示失败的用户
+                             for user_name in failed_names:
+                                 self.update_status(f"❌ 未找到用户或点赞失败: {user_name}", "#f44336")
+                        else:
+                            # 如果多用户功能失败，回退到单用户模式
+                            self.update_status("⚠️ 多用户模式失败，回退到单用户模式", "#FF9800")
+                            # 使用已导入的pengyouquan_dianzan_action函数
                             
-                            try:
-                                result = pengyouquan_dianzan_action(user_name, enable_comment, comment_text, stop_flag_func=lambda: self._stop_moments)
-                                
-                                # 检查是否在操作过程中被停止
+                            # 逐个处理每个用户
+                            for i, user_name in enumerate(user_names, 1):
+                                # 检查是否需要停止
                                 if self._stop_moments:
-                                    self.update_status("⏹️ 操作已停止", "#FF9800")
-                                    return
+                                    self.update_status("⏹️ 用户停止了朋友圈操作", "#FF9800")
+                                    break
+                                    
+                                self.update_status(f"👍 ({i}/{len(user_names)}) 正在查找并点赞: {user_name}", "#FF9800")
                                 
-                                if result:
-                                    success_count += 1
-                                    self.update_status(f"✅ ({i}/{len(user_names)}) 成功给 {user_name} 点赞", "#4CAF50")
-                                else:
+                                try:
+                                    result = pengyouquan_dianzan_action(user_name, enable_comment, comment_text, stop_flag_func=lambda: self._stop_moments)
+                                    
+                                    # 检查是否在操作过程中被停止
+                                    if self._stop_moments:
+                                        self.update_status("⏹️ 操作已停止", "#FF9800")
+                                        return
+                                    
+                                    if result:
+                                        success_count += 1
+                                        self.update_status(f"✅ ({i}/{len(user_names)}) 成功给 {user_name} 点赞", "#4CAF50")
+                                    else:
+                                        failed_count += 1
+                                        failed_names.append(user_name)
+                                        self.update_status(f"❌ ({i}/{len(user_names)}) 未找到用户或点赞失败: {user_name}", "#f44336")
+                                    
+                                    # 在处理下一个用户之前等待用户设置的时间
+                                    if i < len(user_names):
+                                        wait_minutes = wait_seconds // 60
+                                        wait_secs = wait_seconds % 60
+                                        if wait_minutes > 0:
+                                            wait_str = f"{wait_minutes}分{wait_secs}秒"
+                                        else:
+                                            wait_str = f"{wait_secs}秒"
+                                        self.update_status(f"⏳ 等待 {wait_str} 后点赞下一个用户...", "#FF9800")
+                                        
+                                        # 倒计时显示 - 使用更小的时间片来保持GUI响应
+                                        for remaining_seconds in range(wait_seconds, 0, -1):
+                                            # 检查是否需要停止
+                                            if self._stop_moments:
+                                                self.update_status("⏹️ 用户在等待期间停止了朋友圈操作", "#FF9800")
+                                                return
+                                                
+                                            remaining_minutes = remaining_seconds // 60
+                                            remaining_secs = remaining_seconds % 60
+                                            if remaining_minutes > 0:
+                                                time_str = f"{remaining_minutes}分{remaining_secs:02d}秒"
+                                            else:
+                                                time_str = f"{remaining_secs}秒"
+                                            
+                                            self.update_status(f"⏳ 倒计时: {time_str} (下一个: {user_names[i] if i < len(user_names) else '无'})", "#FF9800")
+                                            
+                                            # 使用更小的时间片来保持GUI响应
+                                            for _ in range(10):  # 将1秒分成10个0.1秒
+                                                time.sleep(0.1)
+                                                QApplication.processEvents()  # 处理GUI事件
+                                                if self._stop_moments:  # 在每个时间片都检查停止标志
+                                                    return
+                                    
+                                except Exception as e:
                                     failed_count += 1
                                     failed_names.append(user_name)
-                                    self.update_status(f"❌ ({i}/{len(user_names)}) 未找到用户或点赞失败: {user_name}", "#f44336")
-                                
-                                # 在处理下一个用户之前等待用户设置的时间
-                                if i < len(user_names):
-                                    self.update_status(f"⏳ 等待 {wait_minutes} 分钟后点赞下一个用户...", "#FF9800")
-                                    
-                                    # 倒计时显示 - 使用更小的时间片来保持GUI响应
-                                    for remaining_seconds in range(wait_seconds, 0, -1):
-                                        # 检查是否需要停止
-                                        if self._stop_moments:
-                                            self.update_status("⏹️ 用户在等待期间停止了朋友圈操作", "#FF9800")
-                                            return
-                                            
-                                        remaining_minutes = remaining_seconds // 60
-                                        remaining_secs = remaining_seconds % 60
-                                        if remaining_minutes > 0:
-                                            time_str = f"{remaining_minutes}分{remaining_secs:02d}秒"
-                                        else:
-                                            time_str = f"{remaining_secs}秒"
-                                        
-                                        self.update_status(f"⏳ 倒计时: {time_str} (下一个: {user_names[i] if i < len(user_names) else '无'})", "#FF9800")
-                                        
-                                        # 使用更小的时间片来保持GUI响应
-                                        for _ in range(10):  # 将1秒分成10个0.1秒
-                                            time.sleep(0.1)
-                                            QApplication.processEvents()  # 处理GUI事件
-                                            if self._stop_moments:  # 在每个时间片都检查停止标志
-                                                return
-                                        
-                            except Exception as e:
-                                failed_count += 1
-                                failed_names.append(user_name)
-                                self.update_status(f"❌ ({i}/{len(user_names)}) 处理{user_name}时出错: {str(e)}", "#f44336")
-                            
-                except Exception as e:
-                    failed_count = len(user_names)
-                    failed_names = user_names.copy()
-                    self.update_status(f"❌ 多用户点赞功能出错: {str(e)}", "#f44336")
+                                    self.update_status(f"❌ ({i}/{len(user_names)}) 处理{user_name}时出错: {str(e)}", "#f44336")
+                        
+                    except Exception as e:
+                        failed_count = len(user_names)
+                        failed_names = user_names.copy()
+                        self.update_status(f"❌ 多用户点赞功能出错: {str(e)}", "#f44336")
+                else:
+                    # 给所有人点赞（目前功能待实现，提示用户）
+                    self.update_status("⚠️ 给所有人点赞功能正在开发中，请改用特定人点赞模式", "#FF9800")
+                    failed_count = 1
                 
                 # 显示最终统计结果
                 self.update_status(f"📊 朋友圈功能完成！成功: {success_count}, 失败: {failed_count}", "#4CAF50" if failed_count == 0 else "#FF9800")
@@ -1773,12 +1866,19 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'moments_name_input'):
                 self.moments_name_input.textChanged.connect(self.save_last_inputs)
             
+            if hasattr(self, 'moments_blacklist_input'):
+                self.moments_blacklist_input.textChanged.connect(self.save_last_inputs)
+            
             if hasattr(self, 'comment_text_input'):
                 self.comment_text_input.textChanged.connect(self.save_last_inputs)
             
             # 连接数值输入框的变化信号
             if hasattr(self, 'moments_wait_time_spinbox'):
                 self.moments_wait_time_spinbox.valueChanged.connect(self.save_last_inputs)
+            
+            # 连接单选按钮的变化信号（点赞模式）
+            if hasattr(self, 'specific_users_radio'):
+                self.specific_users_radio.toggled.connect(self.save_last_inputs)
             
             # 连接复选框的变化信号
             if hasattr(self, 'enable_comment_checkbox'):
@@ -1854,8 +1954,14 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'moments_name_input'):
                 config['last_inputs']['moments_names'] = self.moments_name_input.text()
             
+            if hasattr(self, 'moments_blacklist_input'):
+                config['last_inputs']['moments_blacklist'] = self.moments_blacklist_input.text()
+            
             if hasattr(self, 'moments_wait_time_spinbox'):
-                config['last_inputs']['wait_minutes'] = self.moments_wait_time_spinbox.value()
+                config['last_inputs']['wait_seconds'] = self.moments_wait_time_spinbox.value()
+            
+            if hasattr(self, 'specific_users_radio'):
+                config['last_inputs']['specific_users_mode'] = self.specific_users_radio.isChecked()
             
             if hasattr(self, 'enable_comment_checkbox'):
                 config['last_inputs']['enable_comment'] = self.enable_comment_checkbox.isChecked()
@@ -2005,8 +2111,24 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'moments_name_input') and last_inputs.get('moments_names'):
                 self.moments_name_input.setText(last_inputs['moments_names'])
             
-            if hasattr(self, 'moments_wait_time_spinbox') and last_inputs.get('wait_minutes'):
-                self.moments_wait_time_spinbox.setValue(last_inputs['wait_minutes'])
+            if hasattr(self, 'moments_blacklist_input') and last_inputs.get('moments_blacklist'):
+                self.moments_blacklist_input.setText(last_inputs['moments_blacklist'])
+            
+            if hasattr(self, 'moments_wait_time_spinbox'):
+                # 先尝试加载新的秒数配置，如果没有则转换旧的分钟配置
+                if 'wait_seconds' in last_inputs:
+                    self.moments_wait_time_spinbox.setValue(last_inputs['wait_seconds'])
+                elif 'wait_minutes' in last_inputs:
+                    # 将旧的分钟数转换为秒数
+                    self.moments_wait_time_spinbox.setValue(last_inputs['wait_minutes'] * 60)
+            
+            # 恢复点赞模式选择
+            if hasattr(self, 'specific_users_radio') and hasattr(self, 'all_users_radio'):
+                specific_mode = last_inputs.get('specific_users_mode', True)
+                self.specific_users_radio.setChecked(specific_mode)
+                self.all_users_radio.setChecked(not specific_mode)
+                # 触发模式切换处理
+                self.on_like_mode_changed()
             
             if hasattr(self, 'enable_comment_checkbox') and 'enable_comment' in last_inputs:
                 self.enable_comment_checkbox.setChecked(last_inputs['enable_comment'])
