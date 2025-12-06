@@ -88,12 +88,12 @@ except ImportError as e:
 
 
 class ModernButton(QPushButton):
-    """现代化按钮样式"""
+    """二次元可爱按钮样式 ♡"""
     def __init__(self, text, color="primary"):
         super().__init__(text)
         self.color = color
-        self.setMinimumHeight(45)
-        self.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
+        self.setMinimumHeight(50)
+        self.setFont(QFont("微软雅黑", 11, QFont.Bold))
         self.setCursor(Qt.PointingHandCursor)
         self.apply_style()
     
@@ -102,98 +102,112 @@ class ModernButton(QPushButton):
             style = """
                 QPushButton {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #56ab2f, stop:1 #a8e6cf);
-                    border: none;
-                    border-radius: 0px;
+                        stop:0 #FF6B9D, stop:1 #FF85A1);
+                    border: 3px solid #FFF;
+                    border-radius: 18px;
                     color: white;
                     font-weight: bold;
-                    padding: 12px;
+                    padding: 12px 24px;
+                    font-size: 12pt;
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #6bc142, stop:1 #b8f0d5);
+                        stop:0 #FF85A1, stop:1 #FF6B9D);
+                    border: 3px solid #FFD700;
                 }
                 QPushButton:pressed {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #4a9528, stop:1 #98d6c9);
+                        stop:0 #FF4D82, stop:1 #FF6B9D);
+                    border: 3px solid #FFA500;
                 }
                 QPushButton:disabled {
-                    background: #cccccc;
-                    color: #666666;
+                    background: #FFE4E1;
+                    color: #CCC;
+                    border: 3px solid #FFB6C1;
                 }
             """
         elif self.color == "secondary":
             style = """
                 QPushButton {
-                    background: #f8f9fa;
-                    border: 2px solid #6c757d;
-                    border-radius: 6px;
-                    color: #495057;
-                    font-weight: 500;
-                    padding: 8px 8px;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #E6E6FA, stop:1 #DDA0DD);
+                    border: 3px solid #FFF;
+                    border-radius: 18px;
+                    color: white;
+                    font-weight: bold;
+                    padding: 12px 24px;
+                    font-size: 12pt;
                 }
                 QPushButton:hover {
-                    background: #e9ecef;
-                    border-color: #5a6268;
-                    color: #343a40;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #F0E6FA, stop:1 #E0B0E0);
+                    border: 3px solid #FFD700;
                 }
                 QPushButton:pressed {
-                    background: #dee2e6;
-                    border-color: #545b62;
-                    color: #212529;
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                        stop:0 #D0D0F0, stop:1 #D090D0);
+                    border: 3px solid #FFA500;
                 }
                 QPushButton:disabled {
-                    background: #f8f9fa;
-                    border-color: #dee2e6;
-                    color: #adb5bd;
+                    background: #F0F0F0;
+                    color: #CCC;
+                    border: 3px solid #E0E0E0;
                 }
             """
         elif self.color == "warning":
             style = """
                 QPushButton {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #ffa726, stop:1 #ff7043);
-                    border: none;
-                    border-radius: 0px;
+                        stop:0 #FFB6C1, stop:1 #FFC0CB);
+                    border: 3px solid #FFF;
+                    border-radius: 18px;
                     color: white;
                     font-weight: bold;
-                    padding: 12px;
+                    padding: 12px 24px;
+                    font-size: 12pt;
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #ffb74d, stop:1 #ff8a65);
+                        stop:0 #FFC0CB, stop:1 #FFD0D5);
+                    border: 3px solid #FFD700;
                 }
                 QPushButton:pressed {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #f57c00, stop:1 #e64a19);
+                        stop:0 #FFA0AA, stop:1 #FFB0B8);
+                    border: 3px solid #FFA500;
                 }
                 QPushButton:disabled {
-                    background: #cccccc;
-                    color: #666666;
+                    background: #FFE4E1;
+                    color: #CCC;
+                    border: 3px solid #FFD0D5;
                 }
             """
         elif self.color == "danger":
             style = """
                 QPushButton {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #ff6b6b, stop:1 #ee5a52);
-                    border: none;
-                    border-radius: 0px;
+                        stop:0 #FF69B4, stop:1 #FF1493);
+                    border: 3px solid #FFF;
+                    border-radius: 18px;
                     color: white;
                     font-weight: bold;
-                    padding: 12px;
+                    padding: 12px 24px;
+                    font-size: 12pt;
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #ff7979, stop:1 #f66868);
+                        stop:0 #FF85C1, stop:1 #FF4DB8);
+                    border: 3px solid #FFD700;
                 }
                 QPushButton:pressed {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #e55d5d, stop:1 #d64444);
+                        stop:0 #FF4D9D, stop:1 #FF0080);
+                    border: 3px solid #FFA500;
                 }
                 QPushButton:disabled {
-                    background: #cccccc;
-                    color: #666666;
+                    background: #FFE4E1;
+                    color: #CCC;
+                    border: 3px solid #FFB6C1;
                 }
             """
         
@@ -203,14 +217,14 @@ class ModernLineEdit(QLineEdit):
     """现代化输入框样式"""
     def __init__(self, placeholder=""):
         super().__init__()
-        self.setPlaceholderText(placeholder)
+        self.setPlaceholderText(placeholder + " ♡")
         self.setMinimumHeight(40)
         self.setFont(QFont("Microsoft YaHei", 10))
         self.setStyleSheet("""
             QLineEdit {
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
-                padding: 8px 12px;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
+                padding: 10px 18px;
                 font-size: 10pt;
                 font-family: "Microsoft YaHei";
                 background-color: white;
@@ -218,7 +232,7 @@ class ModernLineEdit(QLineEdit):
                 line-height: 24px;
             }
             QLineEdit:focus {
-                border-color: #4CAF50;
+                border-color: #FF69B4;
                 background-color: #f9f9f9;
             }
             QLineEdit:hover {
@@ -227,23 +241,23 @@ class ModernLineEdit(QLineEdit):
         """)
 
 class ModernTextEdit(QTextEdit):
-    """现代化文本编辑器样式"""
+    """二次元可爱文本框样式 ✿"""
     def __init__(self):
         super().__init__()
         self.setFont(QFont("Microsoft YaHei", 10))
         self.setStyleSheet("""
             QTextEdit {
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
                 padding: 12px;
                 font-size: 10pt;
                 font-family: "Microsoft YaHei";
-                background-color: #fafafa;
-                selection-background-color: #4CAF50;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF5F7, stop:1 #FFFFFF);
+                selection-background-color: #FF69B4;
                 line-height: 1.6;
             }
             QTextEdit:focus {
-                border-color: #4CAF50;
+                border-color: #FF69B4;
             }
         """)
     
@@ -306,9 +320,9 @@ class WeChatAutomationGUI(QMainWindow):
         
     def init_ui(self):
         """初始化用户界面"""
-        self.setWindowTitle("WeChat自动化工具 v2.0 - 易链科技（深圳）有限公司")
-        self.setGeometry(100, 100, 1000, 870)
-        self.setMinimumSize(900, 870)
+        self.setWindowTitle("♡ WeChat自动化工具 v2.2 - 二次元可爱版 ♡")
+        self.setGeometry(80, 50, 1200, 950)
+        self.setMinimumSize(1100, 900)
         
         # 设置应用程序图标（如果有的话）
         try:
@@ -333,15 +347,18 @@ class WeChatAutomationGUI(QMainWindow):
         # 设置主题样式
         self.setStyleSheet("""
             QMainWindow {
-                background-color: #f5f5f5;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #FFE4E1, stop:0.5 #FFF0F5, stop:1 #FFE4E1);
             }
             QTabWidget::pane {
-                border: 1px solid #c0c0c0;
+                border: 3px solid #FFB6C1;
                 background-color: white;
-                border-radius: 8px;
+                border-radius: 15px;
             }
             QTabBar::tab {
-                background-color: #e0e0e0;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFB6C1, stop:1 #FFC0CB);
+                color: white;
                 padding: 10px 20px;
                 margin-right: 2px;
                 border-top-left-radius: 8px;
@@ -350,7 +367,7 @@ class WeChatAutomationGUI(QMainWindow):
             }
             QTabBar::tab:selected {
                 background-color: white;
-                color: #4CAF50;
+                color: #FF69B4;
             }
             QTabBar::tab:hover {
                 background-color: #f0f0f0;
@@ -408,7 +425,7 @@ class WeChatAutomationGUI(QMainWindow):
         header_frame.setStyleSheet("""
             QFrame {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #4CAF50, stop:1 #45a049);
+                    stop:0 #FF69B4, stop:1 #FF1493);
                 border-radius: 0px;
                 padding: 20px;
             }
@@ -482,10 +499,10 @@ class WeChatAutomationGUI(QMainWindow):
                 }
                 QPushButton:hover {
                     background-color: #34495e;
-                    color: #4CAF50;
+                    color: #FF69B4;
                 }
                 QPushButton:checked {
-                    background-color: #4CAF50;
+                    background-color: #FF69B4;
                     color: white;
                     border-left: 4px solid #2ecc71;
                 }
@@ -538,17 +555,17 @@ class WeChatAutomationGUI(QMainWindow):
         message_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #fafafa;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF5F7, stop:1 #FFFFFF);
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px 0 5px;
-                color: #4CAF50;
+                color: #FF69B4;
             }
         """)
         
@@ -579,7 +596,7 @@ class WeChatAutomationGUI(QMainWindow):
         self.wait_time_spinbox.setFont(QFont("Microsoft YaHei", 10))
         self.wait_time_spinbox.setStyleSheet("""
             QSpinBox {
-                border: 2px solid #e0e0e0;
+                border: 3px solid #FFB6C1;
                 border-radius: 6px;
                 padding: 8px;
                 font-size: 10pt;
@@ -587,7 +604,7 @@ class WeChatAutomationGUI(QMainWindow):
                 min-width: 80px;
             }
             QSpinBox:focus {
-                border-color: #4CAF50;
+                border-color: #FF69B4;
             }
             QSpinBox::up-button, QSpinBox::down-button {
                 width: 20px;
@@ -642,11 +659,11 @@ class WeChatAutomationGUI(QMainWindow):
             }
             QSpinBox::up-button:hover {
                 background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                    stop: 0 #4CAF50, stop: 1 #45a049);
+                    stop: 0 #FF69B4, stop: 1 #FF1493);
             }
             QSpinBox::down-button:hover {
                 background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                    stop: 0 #4CAF50, stop: 1 #45a049);
+                    stop: 0 #FF69B4, stop: 1 #FF1493);
             }
             QSpinBox::up-arrow:hover {
                 border-bottom-color: white;
@@ -674,17 +691,17 @@ class WeChatAutomationGUI(QMainWindow):
         search_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
                 margin-top: 10px;
                 padding-top: 10px;
-                background-color: #fafafa;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFF5F7, stop:1 #FFFFFF);
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 10px;
                 padding: 0 5px 0 5px;
-                color: #2196F3;
+                color: #FF69B4;
             }
         """)
         
@@ -770,16 +787,20 @@ class WeChatAutomationGUI(QMainWindow):
         mode_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
+                margin-top: 15px;
+                padding-top: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFF5F7, stop:1 #FFFFFF);
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: #FF9800;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #FF69B4;
+                font-family: "微软雅黑";
+                font-size: 11pt;
             }
         """)
         
@@ -806,16 +827,20 @@ class WeChatAutomationGUI(QMainWindow):
         input_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
+                margin-top: 15px;
+                padding-top: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFF5F7, stop:1 #FFFFFF);
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: #FF9800;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #FF69B4;
+                font-family: "微软雅黑";
+                font-size: 11pt;
             }
         """)
         
@@ -860,7 +885,7 @@ class WeChatAutomationGUI(QMainWindow):
         self.moments_wait_time_spinbox.setFont(QFont("Microsoft YaHei", 10))
         self.moments_wait_time_spinbox.setStyleSheet("""
             QSpinBox {
-                border: 2px solid #e0e0e0;
+                border: 3px solid #FFB6C1;
                 border-radius: 6px;
                 padding: 1px;
                 font-size: 10pt;
@@ -868,7 +893,7 @@ class WeChatAutomationGUI(QMainWindow):
                 min-width: 80px;
             }
             QSpinBox:focus {
-                border-color: #FF9800;
+                border-color: #FF69B4;
             }
             QSpinBox::up-button {
                 subcontrol-origin: border;
@@ -918,11 +943,11 @@ class WeChatAutomationGUI(QMainWindow):
             }
             QSpinBox::up-button:hover {
                 background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                    stop: 0 #FF9800, stop: 1 #e68900);
+                    stop: 0 #FF69B4, stop: 1 #FF1493);
             }
             QSpinBox::down-button:hover {
                 background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
-                    stop: 0 #FF9800, stop: 1 #e68900);
+                    stop: 0 #FF69B4, stop: 1 #FF1493);
             }
             QSpinBox::up-arrow:hover {
                 border-bottom-color: white;
@@ -944,6 +969,92 @@ class WeChatAutomationGUI(QMainWindow):
         
         input_layout.addLayout(wait_time_layout)
         
+        # 点赞类型选择
+        like_type_layout = QHBoxLayout()
+        like_type_label = QLabel("点赞类型:")
+        like_type_label.setFont(QFont("微软雅黑", 10))
+        like_type_label.setFixedWidth(100)
+        
+        self.like_text_checkbox = QCheckBox("✿ 文字朋友圈")
+        self.like_text_checkbox.setChecked(True)
+        self.like_text_checkbox.setFont(QFont("微软雅黑", 10))
+        self.like_text_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #FF1493;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border-radius: 5px;
+                border: 3px solid #FFB6C1;
+            }
+            QCheckBox::indicator:checked {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #FF69B4, stop:1 #FF1493);
+                border: 3px solid #FF1493;
+            }
+            QCheckBox::indicator:hover {
+                border: 3px solid #FF69B4;
+            }
+        """)
+        
+        self.like_image_checkbox = QCheckBox("♡ 图片朋友圈")
+        self.like_image_checkbox.setChecked(True)
+        self.like_image_checkbox.setFont(QFont("微软雅黑", 10))
+        self.like_image_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #FF1493;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border-radius: 5px;
+                border: 3px solid #FFB6C1;
+            }
+            QCheckBox::indicator:checked {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #FF69B4, stop:1 #FF1493);
+                border: 3px solid #FF1493;
+            }
+            QCheckBox::indicator:hover {
+                border: 3px solid #FF69B4;
+            }
+        """)
+        
+        self.like_video_checkbox = QCheckBox("★ 视频朋友圈")
+        self.like_video_checkbox.setChecked(True)
+        self.like_video_checkbox.setFont(QFont("微软雅黑", 10))
+        self.like_video_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #FF1493;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border-radius: 5px;
+                border: 3px solid #FFB6C1;
+            }
+            QCheckBox::indicator:checked {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 #FF69B4, stop:1 #FF1493);
+                border: 3px solid #FF1493;
+            }
+            QCheckBox::indicator:hover {
+                border: 3px solid #FF69B4;
+            }
+        """)
+        
+        like_type_layout.addWidget(like_type_label)
+        like_type_layout.addWidget(self.like_text_checkbox)
+        like_type_layout.addWidget(self.like_image_checkbox)
+        like_type_layout.addWidget(self.like_video_checkbox)
+        like_type_layout.addStretch()
+        
+        input_layout.addLayout(like_type_layout)
+        
         layout.addWidget(input_group)
         
         # 评论功能设置（独立区域）
@@ -952,16 +1063,20 @@ class WeChatAutomationGUI(QMainWindow):
         comment_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
+                margin-top: 15px;
+                padding-top: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFF5F7, stop:1 #FFFFFF);
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: #2196F3;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #FF69B4;
+                font-family: "微软雅黑";
+                font-size: 11pt;
             }
         """)
         
@@ -999,17 +1114,17 @@ class WeChatAutomationGUI(QMainWindow):
             QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
-                border: 2px solid #e0e0e0;
+                border: 3px solid #FFB6C1;
                 border-radius: 3px;
                 background-color: white;
             }}
             QCheckBox::indicator:checked {{
-                background-color: #4CAF50;
-                border-color: #4CAF50;
+                background-color: #FF69B4;
+                border-color: #FF69B4;
                 image: url({checkmark_url});
             }}
             QCheckBox::indicator:hover {{
-                border-color: #4CAF50;
+                border-color: #FF69B4;
             }}
             """
             self.enable_comment_checkbox.setStyleSheet(checkbox_style)
@@ -1025,16 +1140,16 @@ class WeChatAutomationGUI(QMainWindow):
             QCheckBox::indicator {
                 width: 18px;
                 height: 18px;
-                border: 2px solid #e0e0e0;
+                border: 3px solid #FFB6C1;
                 border-radius: 3px;
                 background-color: white;
             }
             QCheckBox::indicator:checked {
-                background-color: #4CAF50;
-                border-color: #4CAF50;
+                background-color: #FF69B4;
+                border-color: #FF69B4;
             }
             QCheckBox::indicator:hover {
-                border-color: #4CAF50;
+                border-color: #FF69B4;
             }
             """)
         self.enable_comment_checkbox.setToolTip("勾选后将在点赞时同时进行评论")
@@ -1133,8 +1248,8 @@ class WeChatAutomationGUI(QMainWindow):
         window_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
                 margin-top: 10px;
                 padding-top: 10px;
             }
@@ -1163,7 +1278,7 @@ class WeChatAutomationGUI(QMainWindow):
             QCheckBox::indicator {
                 width: 18px;
                 height: 18px;
-                border: 2px solid #e0e0e0;
+                border: 3px solid #FFB6C1;
                 border-radius: 3px;
                 background-color: white;
             }
@@ -1195,8 +1310,8 @@ class WeChatAutomationGUI(QMainWindow):
         settings_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
                 margin-top: 10px;
                 padding-top: 10px;
             }
@@ -1238,7 +1353,7 @@ class WeChatAutomationGUI(QMainWindow):
             QFrame {
                 background-color: #f8f9fa;
                 border: 1px solid #dee2e6;
-                border-radius: 8px;
+                border-radius: 15px;
                 padding: 1px;
                 margin: 1px;
             }
@@ -1273,7 +1388,7 @@ class WeChatAutomationGUI(QMainWindow):
             QFrame {
                 background-color: white;
                 border: 1px solid #e0e0e0;
-                border-radius: 8px;
+                border-radius: 15px;
                 padding: 10px;
             }
         """)
@@ -1285,7 +1400,7 @@ class WeChatAutomationGUI(QMainWindow):
         # 状态标签
         self.status_label = QLabel("🟢 就绪 - 请选择要执行的功能")
         self.status_label.setFont(QFont("Microsoft YaHei", 12))
-        self.status_label.setStyleSheet("color: #4CAF50;")
+        self.status_label.setStyleSheet("color: #FF69B4;")
         
         # 进度条
         self.progress_bar = QProgressBar()
@@ -1294,7 +1409,7 @@ class WeChatAutomationGUI(QMainWindow):
         self.progress_bar.setFixedHeight(20)  # 设置固定高度
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 2px solid #e0e0e0;
+                border: 3px solid #FFB6C1;
                 border-radius: 5px;
                 text-align: center;
                 font-weight: bold;
@@ -1303,7 +1418,7 @@ class WeChatAutomationGUI(QMainWindow):
                 height: 20px;
             }
             QProgressBar::chunk {
-                background-color: #4CAF50;
+                background-color: #FF69B4;
                 border-radius: 3px;
             }
         """)
@@ -1319,7 +1434,7 @@ class WeChatAutomationGUI(QMainWindow):
         self.log_output.setPlaceholderText("操作日志将在这里显示...")
         layout.addWidget(self.log_output)
     
-    def update_status(self, message, color="#4CAF50"):
+    def update_status(self, message, color="#FF69B4"):
         """更新状态信息"""
         self.status_label.setText(message)
         # 保持字体设置，只更新颜色
@@ -1339,14 +1454,14 @@ class WeChatAutomationGUI(QMainWindow):
     
     def launch_wechat(self):
         """启动微信 - 集成测试脚本中验证有效的启动逻辑"""
-        self.update_status("🚀 正在启动微信...", "#2196F3")
+        self.update_status("🚀 正在启动微信...", "#FF69B4")
         self.show_progress(True)
         self.launch_btn.setEnabled(False)
         
         def launch_worker():
             try:
                 # 使用测试脚本中验证有效的启动逻辑
-                self.update_status("🔍 检查微信安装路径...", "#2196F3")
+                self.update_status("🔍 检查微信安装路径...", "#FF69B4")
                 
                 # 使用智能路径查找
                 if wechat_launcher:
@@ -1363,26 +1478,26 @@ class WeChatAutomationGUI(QMainWindow):
                     self.update_status("❌ 微信文件不存在，请检查安装路径", "#f44336")
                     return
                 
-                self.update_status("✅ 微信文件存在，检查权限...", "#4CAF50")
+                self.update_status("✅ 微信文件存在，检查权限...", "#FF69B4")
                 
                 # 2. 检查文件权限
                 if not os.access(wechat_path, os.X_OK):
-                    self.update_status("⚠️ 微信文件可能没有执行权限", "#FF9800")
+                    self.update_status("⚠️ 微信文件可能没有执行权限", "#FF69B4")
                 
                 # 3. 使用与测试脚本相同的直接启动方法
-                self.update_status("🚀 直接启动微信进程...", "#2196F3")
+                self.update_status("🚀 直接启动微信进程...", "#FF69B4")
                 
                 try:
                     # 使用测试脚本中验证成功的启动方法
                     import subprocess
                     process = subprocess.Popen([wechat_path])
-                    self.update_status(f"✅ 微信进程已启动，PID: {process.pid}", "#4CAF50")
+                    self.update_status(f"✅ 微信进程已启动，PID: {process.pid}", "#FF69B4")
                     
                     # 简单等待微信启动 - 使用更小的时间片来保持GUI响应
                     for _ in range(20):  # 将2秒分成20个0.1秒
                         time.sleep(0.1)
                         QApplication.processEvents()  # 处理GUI事件
-                    self.update_status("✅ 微信启动命令已执行", "#4CAF50")
+                    self.update_status("✅ 微信启动命令已执行", "#FF69B4")
                     result = True
                         
                 except FileNotFoundError:
@@ -1400,7 +1515,7 @@ class WeChatAutomationGUI(QMainWindow):
                     
             except Exception as e:
                 self.update_status(f"❌ 启动出错: {str(e)}", "#f44336")
-                self.update_status("💡 请尝试手动启动微信后再使用工具", "#2196F3")
+                self.update_status("💡 请尝试手动启动微信后再使用工具", "#FF69B4")
             finally:
                 self.show_progress(False)
                 self.launch_btn.setEnabled(True)
@@ -1439,7 +1554,7 @@ class WeChatAutomationGUI(QMainWindow):
         is_contact = self.contact_radio.isChecked()
         target_type = "联系人" if is_contact else "群聊"
         
-        self.update_status(f"🔍 准备向 {len(target_names)} 个{target_type}发送消息", "#2196F3")
+        self.update_status(f"🔍 准备向 {len(target_names)} 个{target_type}发送消息", "#FF69B4")
         self.show_progress(True)
         self.broadcast_btn.setEnabled(False)
         self.stop_broadcast_btn.setEnabled(True)
@@ -1447,7 +1562,7 @@ class WeChatAutomationGUI(QMainWindow):
         def broadcast_worker():
             # 在函数开始时立即检查停止标志
             if self._stop_broadcast:
-                self.update_status("⏹️ 操作已停止", "#FF9800")
+                self.update_status("⏹️ 操作已停止", "#FF69B4")
                 return
                 
             success_count = 0
@@ -1456,7 +1571,7 @@ class WeChatAutomationGUI(QMainWindow):
             
             try:
                 # 首先启动微信（联系人和群聊都需要）
-                self.update_status("🚀 正在启动微信...", "#FF9800")
+                self.update_status("🚀 正在启动微信...", "#FF69B4")
                 
                 # 使用智能路径查找
                 if wechat_launcher:
@@ -1474,10 +1589,10 @@ class WeChatAutomationGUI(QMainWindow):
                     
                     # 使用subprocess.Popen启动微信
                     process = subprocess.Popen([wechat_path])
-                    self.update_status(f"✅ 微信进程已启动 (PID: {process.pid})", "#4CAF50")
+                    self.update_status(f"✅ 微信进程已启动 (PID: {process.pid})", "#FF69B4")
                     
                     # 等待微信窗口出现
-                    self.update_status("⏳ 等待微信窗口弹出...", "#FF9800")
+                    self.update_status("⏳ 等待微信窗口弹出...", "#FF69B4")
                     # 使用更小的时间片来保持GUI响应
                     for _ in range(30):  # 将3秒分成30个0.1秒
                         time.sleep(0.1)
@@ -1485,14 +1600,14 @@ class WeChatAutomationGUI(QMainWindow):
                         if self._stop_broadcast:  # 检查停止标志
                             return
                     
-                    self.update_status("✅ 微信窗口已弹出", "#4CAF50")
+                    self.update_status("✅ 微信窗口已弹出", "#FF69B4")
                     
                 except Exception as e:
                     self.update_status(f"❌ 启动微信失败: {str(e)}", "#f44336")
                     return
                 
                 # 激活微信窗口
-                self.update_status("🎯 正在激活微信窗口...", "#FF9800")
+                self.update_status("🎯 正在激活微信窗口...", "#FF69B4")
                 ensure_wechat_is_active()
                 
                 # 根据类型选择搜索功能
@@ -1505,15 +1620,15 @@ class WeChatAutomationGUI(QMainWindow):
                 for i, target_name in enumerate(target_names, 1):
                     # 检查是否需要停止
                     if self._stop_broadcast:
-                        self.update_status("⏹️ 用户停止了群发操作", "#FF9800")
+                        self.update_status("⏹️ 用户停止了群发操作", "#FF69B4")
                         break
                         
                     # 只在处理多个目标时，从第二个目标开始重新激活微信窗口
                     if i > 1:
-                        self.update_status(f"🎯 ({i}/{len(target_names)}) 正在重新激活微信窗口...", "#FF9800")
+                        self.update_status(f"🎯 ({i}/{len(target_names)}) 正在重新激活微信窗口...", "#FF69B4")
                         ensure_wechat_is_active()
                     
-                    self.update_status(f"🔍 ({i}/{len(target_names)}) 正在搜索{target_type}: {target_name}", "#2196F3")
+                    self.update_status(f"🔍 ({i}/{len(target_names)}) 正在搜索{target_type}: {target_name}", "#FF69B4")
                     
                     try:
                         # 临时重定向输入，使用GUI输入的名称和消息
@@ -1538,12 +1653,12 @@ class WeChatAutomationGUI(QMainWindow):
                             
                             # 检查是否在操作过程中被停止
                             if self._stop_broadcast:
-                                self.update_status("⏹️ 操作已停止", "#FF9800")
+                                self.update_status("⏹️ 操作已停止", "#FF69B4")
                                 return
                             
                             if result:
                                 success_count += 1
-                                self.update_status(f"✅ ({i}/{len(target_names)}) 成功发送到{target_type}: {target_name}", "#4CAF50")
+                                self.update_status(f"✅ ({i}/{len(target_names)}) 成功发送到{target_type}: {target_name}", "#FF69B4")
                             else:
                                 failed_count += 1
                                 failed_names.append(target_name)
@@ -1554,13 +1669,13 @@ class WeChatAutomationGUI(QMainWindow):
                         
                         # 在处理下一个之前等待用户设置的时间
                         if i < len(target_names):
-                            self.update_status(f"⏳ 等待 {wait_minutes} 分钟后处理下一个{target_type}...", "#FF9800")
+                            self.update_status(f"⏳ 等待 {wait_minutes} 分钟后处理下一个{target_type}...", "#FF69B4")
                             
                             # 倒计时显示 - 使用更小的时间片来保持GUI响应
                             for remaining_seconds in range(wait_seconds, 0, -1):
                                 # 检查是否需要停止
                                 if self._stop_broadcast:
-                                    self.update_status("⏹️ 用户在等待期间停止了群发操作", "#FF9800")
+                                    self.update_status("⏹️ 用户在等待期间停止了群发操作", "#FF69B4")
                                     return
                                     
                                 remaining_minutes = remaining_seconds // 60
@@ -1570,7 +1685,7 @@ class WeChatAutomationGUI(QMainWindow):
                                 else:
                                     time_str = f"{remaining_secs}秒"
                                 
-                                self.update_status(f"⏳ 倒计时: {time_str} (下一个: {target_names[i] if i < len(target_names) else '无'})", "#FF9800")
+                                self.update_status(f"⏳ 倒计时: {time_str} (下一个: {target_names[i] if i < len(target_names) else '无'})", "#FF69B4")
                                 
                                 # 使用更小的时间片来保持GUI响应
                                 for _ in range(10):  # 将1秒分成10个0.1秒
@@ -1585,7 +1700,7 @@ class WeChatAutomationGUI(QMainWindow):
                         self.update_status(f"❌ ({i}/{len(target_names)}) 处理{target_name}时出错: {str(e)}", "#f44336")
                 
                 # 显示最终统计结果
-                self.update_status(f"📊 群发完成！成功: {success_count}, 失败: {failed_count}", "#4CAF50" if failed_count == 0 else "#FF9800")
+                self.update_status(f"📊 群发完成！成功: {success_count}, 失败: {failed_count}", "#FF69B4" if failed_count == 0 else "#FF69B4")
                 if failed_names:
                     self.update_status(f"❌ 失败的{target_type}: {', '.join(failed_names)}", "#f44336")
                     
@@ -1601,11 +1716,11 @@ class WeChatAutomationGUI(QMainWindow):
     def stop_broadcast_operation(self):
         """停止群发消息操作"""
         self._stop_broadcast = True  # 设置停止标志
-        self.update_status("⏹️ 正在停止操作...", "#FF9800")
+        self.update_status("⏹️ 正在停止操作...", "#FF69B4")
         self.show_progress(False)
         self.broadcast_btn.setEnabled(True)
         self.stop_broadcast_btn.setEnabled(False)
-        self.update_status("✅ 操作已停止", "#4CAF50")
+        self.update_status("✅ 操作已停止", "#FF69B4")
     
 
     
@@ -1644,6 +1759,16 @@ class WeChatAutomationGUI(QMainWindow):
         enable_comment = self.enable_comment_checkbox.isChecked()
         comment_text = self.comment_text_input.text().strip() if enable_comment else ""
         
+        # 获取点赞类型设置
+        like_text = self.like_text_checkbox.isChecked()
+        like_image = self.like_image_checkbox.isChecked()
+        like_video = self.like_video_checkbox.isChecked()
+        
+        # 验证至少选择一种类型
+        if not (like_text or like_image or like_video):
+            QMessageBox.warning(self, "设置错误", "请至少选择一种点赞类型（文字/图片/视频）！")
+            return
+        
         # 获取窗口调整设置（从设置页面获取）
         enable_window_resize = self.enable_window_resize_checkbox.isChecked()
         
@@ -1663,7 +1788,7 @@ class WeChatAutomationGUI(QMainWindow):
         if enable_comment:
             status_msg += " + 评论"
         
-        self.update_status(status_msg, "#FF9800")
+        self.update_status(status_msg, "#FF69B4")
         self.show_progress(True)
         self.start_moments_btn.setEnabled(False)
         self.stop_moments_btn.setEnabled(True)
@@ -1671,7 +1796,7 @@ class WeChatAutomationGUI(QMainWindow):
         def moments_worker():
             # 在函数开始时立即检查停止标志
             if self._stop_moments:
-                self.update_status("⏹️ 操作已停止", "#FF9800")
+                self.update_status("⏹️ 操作已停止", "#FF69B4")
                 return
                 
             success_count = 0
@@ -1680,7 +1805,7 @@ class WeChatAutomationGUI(QMainWindow):
             
             try:
                 # 第一步：打开朋友圈
-                self.update_status("📱 正在打开朋友圈...", "#FF9800")
+                self.update_status("📱 正在打开朋友圈...", "#FF69B4")
                 
                 # 调用真实的朋友圈打开功能（已在顶部导入）
                 
@@ -1694,11 +1819,11 @@ class WeChatAutomationGUI(QMainWindow):
                     self.update_status("❌ 打开朋友圈失败", "#f44336")
                     return
                 
-                self.update_status("✅ 朋友圈已打开", "#4CAF50")
+                self.update_status("✅ 朋友圈已打开", "#FF69B4")
                 
                 # 如果启用了窗口大小调整，则调整朋友圈窗口大小
                 if enable_window_resize:
-                    self.update_status("🔧 正在调整朋友圈窗口大小...", "#FF9800")
+                    self.update_status("🔧 正在调整朋友圈窗口大小...", "#FF69B4")
                     try:
                         from wechat_core_engine import get_pengyouquan_window_region
                         # 通过get_pengyouquan_window_region函数来触发窗口调整
@@ -1707,13 +1832,13 @@ class WeChatAutomationGUI(QMainWindow):
                             enable_window_resize=True
                         )
                         if pengyouquan_region:
-                            self.update_status("✅ 朋友圈窗口大小已调整", "#4CAF50")
+                            self.update_status("✅ 朋友圈窗口大小已调整", "#FF69B4")
                         else:
-                            self.update_status("⚠️ 朋友圈窗口大小调整失败，继续执行", "#FF9800")
+                            self.update_status("⚠️ 朋友圈窗口大小调整失败，继续执行", "#FF69B4")
                     except Exception as resize_error:
-                        self.update_status(f"⚠️ 窗口调整出错: {resize_error}，继续执行", "#FF9800")
+                        self.update_status(f"⚠️ 窗口调整出错: {resize_error}，继续执行", "#FF69B4")
                 
-                self.update_status("👍 开始点赞操作", "#4CAF50")
+                self.update_status("👍 开始点赞操作", "#FF69B4")
                 import time
                 #time.sleep(3)  # 等待朋友圈加载
                 
@@ -1722,19 +1847,29 @@ class WeChatAutomationGUI(QMainWindow):
                 
                 if is_specific_mode:
                     # 仅给特定人点赞
-                    self.update_status(f"👍 开始同时搜索并点赞 {len(user_names)} 个用户: {', '.join(user_names)}", "#FF9800")
+                    self.update_status(f"👍 开始同时搜索并点赞 {len(user_names)} 个用户: {', '.join(user_names)}", "#FF69B4")
                     
                     try:
                         # 定义状态回调函数
                         def status_update_callback(message):
-                            self.update_status(message, "#FF9800")
+                            self.update_status(message, "#FF69B4")
                         
-                        # 调用多用户并发点赞功能，传递等待时间参数、回调函数、评论参数和停止检查函数
-                        results = pengyouquan_multi_dianzan_action(user_names, wait_seconds, status_update_callback, enable_comment, comment_text, stop_flag_func=lambda: self._stop_moments)
+                        # 调用多用户并发点赞功能，传递等待时间参数、回调函数、评论参数、点赞类型和停止检查函数
+                        results = pengyouquan_multi_dianzan_action(
+                            user_names, 
+                            wait_seconds, 
+                            status_update_callback, 
+                            enable_comment, 
+                            comment_text, 
+                            stop_flag_func=lambda: self._stop_moments,
+                            like_text=like_text,
+                            like_image=like_image,
+                            like_video=like_video
+                        )
                         
                         # 检查是否在操作过程中被停止
                         if self._stop_moments:
-                            self.update_status("⏹️ 操作已停止", "#FF9800")
+                            self.update_status("⏹️ 操作已停止", "#FF69B4")
                             return
                         
                         # 处理结果
@@ -1747,36 +1882,44 @@ class WeChatAutomationGUI(QMainWindow):
                              
                              # 显示成功的用户
                              for user_name in found_users:
-                                 self.update_status(f"✅ 成功给 {user_name} 点赞", "#4CAF50")
+                                 self.update_status(f"✅ 成功给 {user_name} 点赞", "#FF69B4")
                              
                              # 显示失败的用户
                              for user_name in failed_names:
                                  self.update_status(f"❌ 未找到用户或点赞失败: {user_name}", "#f44336")
                         else:
                             # 如果多用户功能失败，回退到单用户模式
-                            self.update_status("⚠️ 多用户模式失败，回退到单用户模式", "#FF9800")
+                            self.update_status("⚠️ 多用户模式失败，回退到单用户模式", "#FF69B4")
                             # 使用已导入的pengyouquan_dianzan_action函数
                             
                             # 逐个处理每个用户
                             for i, user_name in enumerate(user_names, 1):
                                 # 检查是否需要停止
                                 if self._stop_moments:
-                                    self.update_status("⏹️ 用户停止了朋友圈操作", "#FF9800")
+                                    self.update_status("⏹️ 用户停止了朋友圈操作", "#FF69B4")
                                     break
                                     
-                                self.update_status(f"👍 ({i}/{len(user_names)}) 正在查找并点赞: {user_name}", "#FF9800")
+                                self.update_status(f"👍 ({i}/{len(user_names)}) 正在查找并点赞: {user_name}", "#FF69B4")
                                 
                                 try:
-                                    result = pengyouquan_dianzan_action(user_name, enable_comment, comment_text, stop_flag_func=lambda: self._stop_moments)
+                                    result = pengyouquan_dianzan_action(
+                                        user_name, 
+                                        enable_comment, 
+                                        comment_text, 
+                                        stop_flag_func=lambda: self._stop_moments,
+                                        like_text=like_text,
+                                        like_image=like_image,
+                                        like_video=like_video
+                                    )
                                     
                                     # 检查是否在操作过程中被停止
                                     if self._stop_moments:
-                                        self.update_status("⏹️ 操作已停止", "#FF9800")
+                                        self.update_status("⏹️ 操作已停止", "#FF69B4")
                                         return
                                     
                                     if result:
                                         success_count += 1
-                                        self.update_status(f"✅ ({i}/{len(user_names)}) 成功给 {user_name} 点赞", "#4CAF50")
+                                        self.update_status(f"✅ ({i}/{len(user_names)}) 成功给 {user_name} 点赞", "#FF69B4")
                                     else:
                                         failed_count += 1
                                         failed_names.append(user_name)
@@ -1790,13 +1933,13 @@ class WeChatAutomationGUI(QMainWindow):
                                             wait_str = f"{wait_minutes}分{wait_secs}秒"
                                         else:
                                             wait_str = f"{wait_secs}秒"
-                                        self.update_status(f"⏳ 等待 {wait_str} 后点赞下一个用户...", "#FF9800")
+                                        self.update_status(f"⏳ 等待 {wait_str} 后点赞下一个用户...", "#FF69B4")
                                         
                                         # 倒计时显示 - 使用更小的时间片来保持GUI响应
                                         for remaining_seconds in range(wait_seconds, 0, -1):
                                             # 检查是否需要停止
                                             if self._stop_moments:
-                                                self.update_status("⏹️ 用户在等待期间停止了朋友圈操作", "#FF9800")
+                                                self.update_status("⏹️ 用户在等待期间停止了朋友圈操作", "#FF69B4")
                                                 return
                                                 
                                             remaining_minutes = remaining_seconds // 60
@@ -1806,7 +1949,7 @@ class WeChatAutomationGUI(QMainWindow):
                                             else:
                                                 time_str = f"{remaining_secs}秒"
                                             
-                                            self.update_status(f"⏳ 倒计时: {time_str} (下一个: {user_names[i] if i < len(user_names) else '无'})", "#FF9800")
+                                            self.update_status(f"⏳ 倒计时: {time_str} (下一个: {user_names[i] if i < len(user_names) else '无'})", "#FF69B4")
                                             
                                             # 使用更小的时间片来保持GUI响应
                                             for _ in range(10):  # 将1秒分成10个0.1秒
@@ -1826,11 +1969,11 @@ class WeChatAutomationGUI(QMainWindow):
                         self.update_status(f"❌ 多用户点赞功能出错: {str(e)}", "#f44336")
                 else:
                     # 给所有人点赞（目前功能待实现，提示用户）
-                    self.update_status("⚠️ 给所有人点赞功能正在开发中，请改用特定人点赞模式", "#FF9800")
+                    self.update_status("⚠️ 给所有人点赞功能正在开发中，请改用特定人点赞模式", "#FF69B4")
                     failed_count = 1
                 
                 # 显示最终统计结果
-                self.update_status(f"📊 朋友圈功能完成！成功: {success_count}, 失败: {failed_count}", "#4CAF50" if failed_count == 0 else "#FF9800")
+                self.update_status(f"📊 朋友圈功能完成！成功: {success_count}, 失败: {failed_count}", "#FF69B4" if failed_count == 0 else "#FF69B4")
                 if failed_names:
                     self.update_status(f"❌ 失败的用户: {', '.join(failed_names)}", "#f44336")
                     
@@ -1846,11 +1989,11 @@ class WeChatAutomationGUI(QMainWindow):
     def stop_moments_operation(self):
         """停止朋友圈操作"""
         self._stop_moments = True  # 设置停止标志
-        self.update_status("⏹️ 正在停止朋友圈操作...", "#FF9800")
+        self.update_status("⏹️ 正在停止朋友圈操作...", "#FF69B4")
         self.show_progress(False)
         self.start_moments_btn.setEnabled(True)
         self.stop_moments_btn.setEnabled(False)
-        self.update_status("✅ 朋友圈操作已停止", "#4CAF50")
+        self.update_status("✅ 朋友圈操作已停止", "#FF69B4")
     
     def connect_auto_save_signals_except_radio(self):
         """连接除单选按钮外的所有输入框的实时保存信号"""
@@ -1883,6 +2026,15 @@ class WeChatAutomationGUI(QMainWindow):
             # 连接复选框的变化信号
             if hasattr(self, 'enable_comment_checkbox'):
                 self.enable_comment_checkbox.stateChanged.connect(self.save_last_inputs)
+            
+            if hasattr(self, 'like_text_checkbox'):
+                self.like_text_checkbox.stateChanged.connect(self.save_last_inputs)
+            
+            if hasattr(self, 'like_image_checkbox'):
+                self.like_image_checkbox.stateChanged.connect(self.save_last_inputs)
+            
+            if hasattr(self, 'like_video_checkbox'):
+                self.like_video_checkbox.stateChanged.connect(self.save_last_inputs)
             
             if hasattr(self, 'enable_window_resize_checkbox'):
                 self.enable_window_resize_checkbox.stateChanged.connect(self.save_last_inputs)
@@ -1968,6 +2120,16 @@ class WeChatAutomationGUI(QMainWindow):
             
             if hasattr(self, 'comment_text_input'):
                 config['last_inputs']['comment_text'] = self.comment_text_input.text()
+            
+            # 保存点赞类型选择
+            if hasattr(self, 'like_text_checkbox'):
+                config['last_inputs']['like_text'] = self.like_text_checkbox.isChecked()
+            
+            if hasattr(self, 'like_image_checkbox'):
+                config['last_inputs']['like_image'] = self.like_image_checkbox.isChecked()
+            
+            if hasattr(self, 'like_video_checkbox'):
+                config['last_inputs']['like_video'] = self.like_video_checkbox.isChecked()
             
             # 保存窗口大小调整选项
             if hasattr(self, 'enable_window_resize_checkbox'):
@@ -2135,6 +2297,16 @@ class WeChatAutomationGUI(QMainWindow):
             
             if hasattr(self, 'comment_text_input') and last_inputs.get('comment_text'):
                 self.comment_text_input.setText(last_inputs['comment_text'])
+            
+            # 恢复点赞类型选择
+            if hasattr(self, 'like_text_checkbox'):
+                self.like_text_checkbox.setChecked(last_inputs.get('like_text', True))
+            
+            if hasattr(self, 'like_image_checkbox'):
+                self.like_image_checkbox.setChecked(last_inputs.get('like_image', True))
+            
+            if hasattr(self, 'like_video_checkbox'):
+                self.like_video_checkbox.setChecked(last_inputs.get('like_video', True))
             
             # 恢复窗口大小调整选项
             if hasattr(self, 'enable_window_resize_checkbox') and 'enable_window_resize' in last_inputs:

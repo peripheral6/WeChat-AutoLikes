@@ -12,6 +12,9 @@
     "enable_window_resize": true,
     "moments_blacklist": "",
     "wait_seconds": 60,
-    "specific_users_mode": false
+    "specific_users_mode": false,
+    "like_text": true,
+    "like_image": true,
+    "like_video": true
   }
 }
