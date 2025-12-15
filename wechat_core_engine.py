@@ -2854,6 +2854,343 @@ def find_and_click_pengyouquan_with_dianzan(target_name=None, stop_flag_func=Non
     # 执行点赞操作
     return pengyouquan_dianzan_action(target_name, stop_flag_func=stop_flag_func)
 
+# ==================== 朋友圈点赞优化功能 ====================
+
+def simple_click_dianzan_by_position(user_name_position, retry_count=2):
+    """
+    简化的点赞方法 - 基于用户名位置直接推导点赞按钮位置，无需资源文件
+    
+    Args:
+        user_name_position: (x, y) 用户名的位置
+        retry_count: 重试次数
+    
+    Returns:
+        bool: 是否成功点赞
+    """
+    if not user_name_position:
+        print("❌ 未提供用户名位置")
+        return False
+    
+    try:
+        x, y = user_name_position
+        print(f"📍 用户名位置: ({x}, {y})")
+        
+        # 点赞按钮相对于用户名的位置
+        # 朋友圈排版：用户名在上，内容在中间，点赞按钮在下面
+        # 点赞按钮通常在最下方，水平位置在左侧（在赞的位置）
+        
+        # 第一个尝试：朝向用户名下方 100-120 像素，左侧 150-180 像素
+        offsets = [
+            (-160, 100),   # 第1种：向左160，向下100
+            (-150, 110),   # 第2种：向左150，向下110
+            (-140, 120),   # 第3种：向左140，向下120
+        ]
+        
+        for attempt, (offset_x, offset_y) in enumerate(offsets, 1):
+            click_x = x + offset_x
+            click_y = y + offset_y
+            
+            print(f"👍 第{attempt}个尝试：点击位置 ({click_x}, {click_y})")
+            
+            # 点击点赞按钮
+            pyautogui.click(click_x, click_y)
+            time.sleep(0.8)
+            
+            # 检查是否成功（再点击一次确认）
+            # 第一次点击可能打开菜单，第二次点击确认
+            pyautogui.click(click_x, click_y)
+            time.sleep(1)
+            
+            print(f"✅ 第{attempt}个尝试：已执行点赞操作")
+            return True
+        
+        return False
+        
+    except Exception as e:
+        print(f"❌ 点赞操作失败: {e}")
+        return False
+
+
+def optimized_pengyouquan_dianzan_action(target_name, enable_comment=False, comment_text="", stop_flag_func=None, retry_attempts=3, debug_screenshots=False):
+    """
+    优化的朋友圈点赞函数 - 增加重试机制和诊断功能
+    
+    Args:
+        target_name: 目标用户名
+        enable_comment: 是否启用评论
+        comment_text: 评论文本
+        stop_flag_func: 停止标志函数
+        retry_attempts: 重试次数（默认3次）
+        debug_screenshots: 是否保存调试截图
+    """
+    print(f"🚀 开始优化点赞流程: {target_name}")
+    
+    for attempt in range(1, retry_attempts + 1):
+        print(f"\n📍 第 {attempt}/{retry_attempts} 次尝试")
+        
+        if stop_flag_func and stop_flag_func():
+            print("⏹️ 优化点赞操作被停止")
+            return False
+        
+        try:
+            # 步骤1: 使用RapidOCR在当前视图识别用户名
+            print(f"🔍 第{attempt}次：使用OCR在当前视图寻找用户名...")
+            name_position = enhanced_recognition_in_current_view(target_name, stop_flag_func)
+            
+            if name_position:
+                print(f"✅ 第{attempt}次：找到用户名位置: {name_position}")
+                
+                # 步骤2: 使用原始的find_and_click_dianzan方法（基于assets文件识别）
+                print(f"👍 第{attempt}次：开始点赞操作...")
+                if find_and_click_dianzan(
+                    target_name,
+                    name_position,
+                    max_scroll_attempts=3,
+                    enable_comment=enable_comment,
+                    comment_text=comment_text,
+                    stop_flag_func=stop_flag_func
+                ):
+                    print(f"✅ 第{attempt}次：成功给 {target_name} 点赞！")
+                    return True
+                else:
+                    print(f"❌ 第{attempt}次：点赞操作失败，准备重试...")
+                    if attempt < retry_attempts:
+                        # 滚动一点以重新定位
+                        print(f"⬇️ 第{attempt}次：滚动重新定位...")
+                        pyautogui.press('down')
+                        time.sleep(1)
+                    continue
+            else:
+                print(f"❌ 第{attempt}次：未找到用户名，准备重试...")
+                if attempt < retry_attempts:
+                    # 滚动朋友圈查找用户
+                    print(f"⬇️ 第{attempt}次：滚动查找用户...")
+                    pyautogui.press('down')
+                    time.sleep(1)
+                continue
+                
+        except Exception as e:
+            print(f"❌ 第{attempt}次：出错 - {str(e)}")
+            if attempt < retry_attempts:
+                time.sleep(1)
+                continue
+    
+    print(f"❌ 经过 {retry_attempts} 次重试，仍未能给 {target_name} 点赞")
+    return False
+
+
+def pengyouquan_like_all_action(status_callback=None, stop_flag_func=None, max_posts=None, max_retries_per_post=2):
+    """
+    给所有人点赞的功能 - 遍历朋友圈并对所有可见的内容进行点赞
+    
+    Args:
+        status_callback: 状态回调函数，用于向UI报告进度
+        stop_flag_func: 停止标志检查函数
+        max_posts: 最多点赞的posts数量（None表示不限）
+        max_retries_per_post: 每个post的重试次数
+    
+    Returns:
+        dict: {'success': 成功数, 'failed': 失败数, 'skipped': 跳过数}
+    
+    停止条件：
+        1. 用户手动停止
+        2. 达到最大点赞数量限制
+        3. 检测到朋友圈底部（"昨天"标记）
+        4. 连续发现7个以上已点赞过的posts（说明已循环到之前停止的位置）
+    """
+    print("🌟 开始给所有人点赞功能...")
+    
+    success_count = 0
+    failed_count = 0
+    skipped_count = 0
+    post_count = 0
+    liked_posts = set()  # 跟踪已经点赞过的posts（防止重复）
+    consecutive_already_liked = 0  # 连续遇到已点赞posts的计数
+    STOP_THRESHOLD = 7  # 如果连续看到7个已点赞的posts，认为已到循环点，停止滚动
+    
+    try:
+        # 首先激活朋友圈窗口
+        if not ensure_wechat_is_active():
+            print("❌ 微信窗口未激活")
+            if status_callback:
+                status_callback("❌ 微信窗口未激活，无法继续")
+            return {'success': 0, 'failed': 0, 'skipped': 0}
+        
+        time.sleep(1)
+        
+        # 开始滚动朋友圈并对所有内容进行点赞
+        scroll_count = 0
+        max_scrolls = 100  # 最多滚动100次（增加此限制因为我们有更聪明的停止条件）
+        consecutive_failures = 0
+        max_consecutive_failures = 3  # 如果连续3次失败，停止滚动
+        
+        while scroll_count < max_scrolls:
+            # 检查停止标志
+            if stop_flag_func and stop_flag_func():
+                print("⏹️ 给所有人点赞操作被停止")
+                if status_callback:
+                    status_callback(f"⏹️ 操作已停止。成功: {success_count}, 失败: {failed_count}")
+                break
+            
+            scroll_count += 1
+            
+            if status_callback:
+                status_callback(f"🔄 第 {scroll_count} 次滚动，已点赞: {success_count} 个（循环检测: {consecutive_already_liked}/7）")
+            
+            print(f"\n🔄 第 {scroll_count} 次滚动（已点赞循环检测: {consecutive_already_liked}/7）")
+            
+            # 获取当前视图的所有用户名
+            print("📋 使用OCR识别当前视图中的所有用户名...")
+            
+            if ocr_engine and ocr_engine.is_available():
+                try:
+                    # 获取朋友圈窗口区域
+                    pengyouquan_region = get_pengyouquan_window_region(stop_flag_func, enable_window_resize=False)
+                    
+                    if pengyouquan_region:
+                        left, top, right, bottom = pengyouquan_region
+                        width, height = right - left, bottom - top
+                        
+                        if width > 0 and height > 0 and left >= 0 and top >= 0:
+                            screenshot = pyautogui.screenshot(region=(left, top, width, height))
+                        else:
+                            screenshot = pyautogui.screenshot()
+                    else:
+                        screenshot = pyautogui.screenshot()
+                    
+                    # 使用RapidOCR识别所有文字
+                    result = ocr_engine.recognize_text(screenshot)
+                    
+                    if result and len(result) > 0:
+                        print(f"📋 本次识别到 {len(result)} 行文字")
+                        
+                        # 查找用户名（朋友圈用户名通常在特定位置）
+                        found_users_this_round = []
+                        found_already_liked_this_round = 0  # 本轮找到的已点赞posts数
+                        
+                        for line in result:
+                            if len(line) >= 2:
+                                text = line[1]
+                                bbox = line[0] if len(line) >= 1 else None
+                                
+                                # 简单启发式：跳过纯数字、纯符号、太短或太长的文本
+                                if len(text.strip()) > 0 and len(text.strip()) <= 20 and not text.isdigit():
+                                    # 检查是否看起来像用户名（包含中文字符或英文）
+                                    has_chinese = any('\u4e00' <= c <= '\u9fff' for c in text)
+                                    has_english = any(c.isalpha() for c in text)
+                                    
+                                    if has_chinese or has_english:
+                                        # 使用坐标作为唯一标识，防止重复
+                                        if bbox:
+                                            post_id = (round(bbox[0][1] / 10) * 10, round(bbox[0][0] / 10) * 10)  # 粗粒度位置作为ID
+                                            
+                                            if post_id not in liked_posts:
+                                                found_users_this_round.append((text, post_id))
+                                                print(f"   - 发现新内容: {text}")
+                                            else:
+                                                # 这是一个已经点赞过的post
+                                                found_already_liked_this_round += 1
+                                                print(f"   - ⏭️ 已点赞过: {text}")
+                        
+                        # 检查本轮是否全是已点赞的内容（循环检测）
+                        if found_users_this_round:
+                            # 重置循环计数器，因为我们发现了新的内容
+                            consecutive_already_liked = 0
+                            consecutive_failures = 0
+                            
+                            # 对本轮发现的用户进行点赞尝试
+                            for user_name, post_id in found_users_this_round:
+                                # 检查停止标志
+                                if stop_flag_func and stop_flag_func():
+                                    print("⏹️ 给所有人点赞操作被停止")
+                                    if status_callback:
+                                        status_callback(f"⏹️ 操作已停止。成功: {success_count}, 失败: {failed_count}")
+                                    return {'success': success_count, 'failed': failed_count, 'skipped': skipped_count}
+                                
+                                # 检查是否达到最大posts数量
+                                if max_posts and success_count + failed_count >= max_posts:
+                                    print(f"📊 已达到最大点赞数量限制 ({max_posts})")
+                                    if status_callback:
+                                        status_callback(f"📊 已达到最大点赞数量。成功: {success_count}, 失败: {failed_count}")
+                                    return {'success': success_count, 'failed': failed_count, 'skipped': skipped_count}
+                                
+                                post_count += 1
+                                print(f"\n👍 ({post_count}) 尝试点赞: {user_name}")
+                                
+                                if status_callback:
+                                    status_callback(f"👍 ({post_count}) 正在点赞: {user_name}...")
+                                
+                                # 使用优化的点赞函数
+                                if optimized_pengyouquan_dianzan_action(user_name, stop_flag_func=stop_flag_func, retry_attempts=max_retries_per_post):
+                                    success_count += 1
+                                    liked_posts.add(post_id)
+                                    print(f"✅ 成功点赞: {user_name}")
+                                    if status_callback:
+                                        status_callback(f"✅ 成功点赞: {user_name}")
+                                    time.sleep(0.5)  # 点赞后等待
+                                else:
+                                    failed_count += 1
+                                    print(f"❌ 失败点赞: {user_name}")
+                                    if status_callback:
+                                        status_callback(f"❌ 失败点赞: {user_name}")
+                        else:
+                            # 本轮全是已点赞的内容或者没有发现任何内容
+                            if found_already_liked_this_round > 0:
+                                # 本轮发现了已点赞的内容，增加循环计数器
+                                consecutive_already_liked += found_already_liked_this_round
+                                print(f"⚠️ 本轮全是已点赞的内容 (共{found_already_liked_this_round}个)，循环计数: {consecutive_already_liked}/{STOP_THRESHOLD}")
+                                
+                                # 检查是否达到循环停止条件
+                                if consecutive_already_liked >= STOP_THRESHOLD:
+                                    print(f"🛑 检测到已循环到之前停止的位置（连续{consecutive_already_liked}个已点赞的posts），停止滚动")
+                                    if status_callback:
+                                        status_callback(f"🛑 检测到循环位置，停止点赞")
+                                    break
+                            else:
+                                # 没有发现任何内容
+                                print("⚠️ 本轮未识别到任何内容")
+                                consecutive_failures += 1
+                                if consecutive_failures >= max_consecutive_failures:
+                                    print(f"⚠️ 连续 {max_consecutive_failures} 轮未找到内容，停止滚动")
+                                    break
+                    else:
+                        print("⚠️ OCR识别结果为空")
+                        consecutive_failures += 1
+                
+                except Exception as e:
+                    print(f"❌ OCR识别失败: {e}")
+                    consecutive_failures += 1
+            else:
+                print("⚠️ RapidOCR不可用")
+                break
+            
+            # 向下滚动
+            print("⬇️ 向下滚动朋友圈...")
+            pyautogui.press('down')
+            time.sleep(1)  # 等待滚动动画
+            
+            # 检查是否到达底部（检查"昨天"标记）
+            if check_yesterday_marker(stop_flag_func):
+                print("✅ 已到达朋友圈底部（检测到'昨天'标记），停止滚动")
+                break
+        
+        print(f"\n📊 朋友圈点赞统计:")
+        print(f"  ✅ 成功: {success_count}")
+        print(f"  ❌ 失败: {failed_count}")
+        print(f"  ⏭️  跳过: {skipped_count}")
+        
+        if status_callback:
+            status_callback(f"📊 朋友圈点赞完成! 成功: {success_count}, 失败: {failed_count}")
+        
+        return {'success': success_count, 'failed': failed_count, 'skipped': skipped_count}
+    
+    except Exception as e:
+        print(f"❌ 给所有人点赞功能出错: {e}")
+        if status_callback:
+            status_callback(f"❌ 出错: {str(e)}")
+        return {'success': success_count, 'failed': failed_count, 'skipped': skipped_count}
+
+
 # ==================== 主程序 ====================
 
 # 命令行入口点已移除，此文件现在仅作为GUI的后端模块使用

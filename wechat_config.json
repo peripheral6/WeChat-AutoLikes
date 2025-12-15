@@ -1,20 +1,19 @@
 {
-  "wechat_path": "C:\\Program Files\\Tencent\\Weixin\\Weixin.exe",
+  "wechat_path": "D:\\Program Files\\Weixin\\Weixin.exe",
   "last_inputs": {
-    "message_content": "人单独",
+    "message_content": "",
     "contact_names": "",
-    "group_names": "什么故事,测试一下",
+    "group_names": "",
     "is_contact": true,
     "moments_names": "",
-    "wait_minutes": 1,
+    "moments_blacklist": "广告号",
+    "wait_seconds": 30,
+    "specific_users_mode": false,
     "enable_comment": false,
     "comment_text": "",
-    "enable_window_resize": true,
-    "moments_blacklist": "",
-    "wait_seconds": 60,
-    "specific_users_mode": false,
-    "like_text": true,
+    "like_text": false,
     "like_image": true,
-    "like_video": true
+    "like_video": true,
+    "enable_window_resize": true
   }
 }

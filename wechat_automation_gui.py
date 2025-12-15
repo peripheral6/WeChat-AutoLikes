@@ -52,7 +52,8 @@ try:
     from wechat_core_engine import (
         search_contact, search_group, find_and_click_pengyouquan_with_dianzan,
         ensure_wechat_is_active, pengyouquan_dianzan_action, pengyouquan_multi_dianzan_action,
-        find_and_click_pengyouquan, adjust_pengyouquan_window_size
+        find_and_click_pengyouquan, adjust_pengyouquan_window_size,
+        optimized_pengyouquan_dianzan_action, pengyouquan_like_all_action
     )
     print("✅ GUI环境：微信核心引擎已加载")
 except ImportError as e:
@@ -84,6 +85,12 @@ except ImportError as e:
     
     def adjust_pengyouquan_window_size(*args, **kwargs):
         return False
+    
+    def optimized_pengyouquan_dianzan_action(*args, **kwargs):
+        return False
+    
+    def pengyouquan_like_all_action(*args, **kwargs):
+        return {'success': 0, 'failed': 0, 'skipped': 0}
 
 
 
@@ -269,14 +276,18 @@ class ModernTextEdit(QTextEdit):
     
     def _scroll_to_bottom(self):
         """滚动到底部的具体实现"""
-        # 移动光标到文档末尾并确保可见
-        cursor = self.textCursor()
-        cursor.movePosition(QTextCursor.End)
-        self.setTextCursor(cursor)
-        self.ensureCursorVisible()
-        # 同时设置滚动条到最大值作为备用方案
-        scrollbar = self.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        try:
+            # 移动光标到文档末尾并确保可见
+            cursor = self.textCursor()
+            cursor.movePosition(QTextCursor.End)
+            self.setTextCursor(cursor)
+            self.ensureCursorVisible()
+            # 同时设置滚动条到最大值作为备用方案
+            scrollbar = self.verticalScrollBar()
+            scrollbar.setValue(scrollbar.maximum())
+        except Exception as e:
+            # 忽略任何发生的错误，确保不影响主程序执行
+            pass
 
 class WorkerThread(QThread):
     """工作线程，用于执行耗时操作"""
@@ -302,6 +313,8 @@ class WorkerThread(QThread):
 
 class WeChatAutomationGUI(QMainWindow):
     """微信自动化工具主界面"""
+    # 定义信号，用于从worker线程安全地更新UI
+    status_updated = pyqtSignal(str, str)  # (message, color)
     
     def __init__(self):
         super().__init__()
@@ -311,6 +324,8 @@ class WeChatAutomationGUI(QMainWindow):
         self._stop_broadcast = False  # 停止群发消息标志
         self._stop_moments = False  # 停止朋友圈操作标志
         self.init_ui()
+        # 连接status_updated信号到update_status_impl方法（在主线程执行）
+        self.status_updated.connect(self.update_status_impl)
         # 加载上次的输入内容（需要在UI创建后调用）
         self.load_last_inputs()
         # 连接实时保存信号（在加载输入内容之后连接）
@@ -777,7 +792,7 @@ class WeChatAutomationGUI(QMainWindow):
         # 功能说明
         info_frame = self.create_info_frame(
             "👍 点赞和评论",
-            "⑴可选择给所有人点赞或给特定人点赞\n⑵给特定人点赞时，支持多个用户英文逗号分隔如：张三,李四,王五\n⑶给所有人点赞时，可设置黑名单排除不想点赞的用户"
+            "⑴请先在微信中手动打开朋友圈窗口\n⑵可选择给所有人点赞或给特定人点赞\n⑶给特定人点赞时，支持多个用户英文逗号分隔如：张三,李四,王五\n⑷给所有人点赞时，可设置黑名单排除不想点赞的用户"
         )
         layout.addWidget(info_frame)
         
@@ -1184,10 +1199,10 @@ class WeChatAutomationGUI(QMainWindow):
         button_layout.setContentsMargins(0, 20, 0, 0)
         
         # 启动按钮（与群发消息样式一致）
-        self.start_moments_btn = ModernButton("启动", "primary")
+        self.start_moments_btn = ModernButton("▶ 开始点赞", "primary")
         self.start_moments_btn.clicked.connect(self.start_moments_function)
         self.start_moments_btn.setFixedSize(120, 50)
-        self.start_moments_btn.setToolTip("启动朋友圈功能")
+        self.start_moments_btn.setToolTip("请先在微信中手动打开朋友圈，然后点击此按钮开始点赞")
         
         # 停止按钮（与群发消息保持一致）
         self.stop_moments_btn = ModernButton("停止", "danger")
@@ -1435,7 +1450,12 @@ class WeChatAutomationGUI(QMainWindow):
         layout.addWidget(self.log_output)
     
     def update_status(self, message, color="#FF69B4"):
-        """更新状态信息"""
+        """更新状态信息 - 使用信号-槽机制安全地从任何线程调用"""
+        # 通过信号发送更新请求到主线程
+        self.status_updated.emit(message, color)
+    
+    def update_status_impl(self, message, color="#FF69B4"):
+        """实际执行的状态更新 - 在主线程中执行"""
         self.status_label.setText(message)
         # 保持字体设置，只更新颜色
         self.status_label.setStyleSheet(f"color: {color}; font-size: 12pt; font-family: 'Microsoft YaHei';")
@@ -1804,46 +1824,12 @@ class WeChatAutomationGUI(QMainWindow):
             failed_names = []
             
             try:
-                # 第一步：打开朋友圈
-                self.update_status("📱 正在打开朋友圈...", "#FF69B4")
-                
-                # 调用真实的朋友圈打开功能（已在顶部导入）
-                
-                # 先激活微信窗口
-                if not ensure_wechat_is_active():
-                    self.update_status("❌ 无法激活微信窗口", "#f44336")
-                    return
-                
-                # 然后打开朋友圈
-                if not find_and_click_pengyouquan(stop_flag_func=lambda: self._stop_moments):
-                    self.update_status("❌ 打开朋友圈失败", "#f44336")
-                    return
-                
-                self.update_status("✅ 朋友圈已打开", "#FF69B4")
-                
-                # 如果启用了窗口大小调整，则调整朋友圈窗口大小
-                if enable_window_resize:
-                    self.update_status("🔧 正在调整朋友圈窗口大小...", "#FF69B4")
-                    try:
-                        from wechat_core_engine import get_pengyouquan_window_region
-                        # 通过get_pengyouquan_window_region函数来触发窗口调整
-                        pengyouquan_region = get_pengyouquan_window_region(
-                            stop_flag_func=lambda: self._stop_moments, 
-                            enable_window_resize=True
-                        )
-                        if pengyouquan_region:
-                            self.update_status("✅ 朋友圈窗口大小已调整", "#FF69B4")
-                        else:
-                            self.update_status("⚠️ 朋友圈窗口大小调整失败，继续执行", "#FF69B4")
-                    except Exception as resize_error:
-                        self.update_status(f"⚠️ 窗口调整出错: {resize_error}，继续执行", "#FF69B4")
-                
+                # 朋友圈已由用户手动打开，直接开始点赞操作
+                self.update_status("✅ 朋友圈已打开，准备开始点赞", "#FF69B4")
                 self.update_status("👍 开始点赞操作", "#FF69B4")
                 import time
-                #time.sleep(3)  # 等待朋友圈加载
                 
-                # 第二步：进行点赞操作
-                # 使用已导入的pengyouquan_multi_dianzan_action函数
+                # 进行点赞操作 - 使用已导入的pengyouquan_multi_dianzan_action函数
                 
                 if is_specific_mode:
                     # 仅给特定人点赞
@@ -1968,9 +1954,44 @@ class WeChatAutomationGUI(QMainWindow):
                         failed_names = user_names.copy()
                         self.update_status(f"❌ 多用户点赞功能出错: {str(e)}", "#f44336")
                 else:
-                    # 给所有人点赞（目前功能待实现，提示用户）
-                    self.update_status("⚠️ 给所有人点赞功能正在开发中，请改用特定人点赞模式", "#FF69B4")
-                    failed_count = 1
+                    # 给所有人点赞（现在已实现！）
+                    self.update_status("🌟 开始给所有人点赞功能...", "#FF69B4")
+                    
+                    try:
+                        # 定义状态回调函数
+                        def status_update_callback(message):
+                            self.update_status(message, "#FF69B4")
+                        
+                        # 调用优化的给所有人点赞功能
+                        results = pengyouquan_like_all_action(
+                            status_callback=status_update_callback,
+                            stop_flag_func=lambda: self._stop_moments,
+                            max_posts=100,  # 最多点赞100个posts
+                            max_retries_per_post=2
+                        )
+                        
+                        # 检查是否在操作过程中被停止
+                        if self._stop_moments:
+                            self.update_status("⏹️ 操作已停止", "#FF69B4")
+                            return
+                        
+                        # 处理结果
+                        if results and isinstance(results, dict):
+                            success_count = results.get('success', 0)
+                            failed_count = results.get('failed', 0)
+                            skipped_count = results.get('skipped', 0)
+                            
+                            # 显示统计结果
+                            self.update_status(f"📊 给所有人点赞完成!", "#FF69B4")
+                            self.update_status(f"✅ 成功点赞: {success_count} 个", "#FF69B4")
+                            self.update_status(f"❌ 失败: {failed_count} 个", "#f44336")
+                            if skipped_count > 0:
+                                self.update_status(f"⏭️ 跳过: {skipped_count} 个", "#FF69B4")
+                        else:
+                            self.update_status("⚠️ 给所有人点赞功能返回异常结果", "#FF69B4")
+                    
+                    except Exception as e:
+                        self.update_status(f"❌ 给所有人点赞功能出错: {str(e)}", "#f44336")
                 
                 # 显示最终统计结果
                 self.update_status(f"📊 朋友圈功能完成！成功: {success_count}, 失败: {failed_count}", "#FF69B4" if failed_count == 0 else "#FF69B4")
