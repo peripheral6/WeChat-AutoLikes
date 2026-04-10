@@ -105,6 +105,30 @@ def find_wechat_main_window():
     win32gui.EnumWindows(enum_windows_callback, windows)
     return windows
 
+def find_pengyouquan_windows():
+    """查找已打开的朋友圈窗口"""
+    windows = []
+
+    def enum_windows_callback(hwnd, windows):
+        try:
+            if win32gui.IsWindowVisible(hwnd):
+                window_text = win32gui.GetWindowText(hwnd)
+                if "朋友圈" in window_text and win32gui.IsWindow(hwnd):
+                    windows.append((hwnd, window_text))
+        except:
+            pass
+        return True
+
+    win32gui.EnumWindows(enum_windows_callback, windows)
+    return windows
+
+def is_pengyouquan_window_open():
+    """检查朋友圈窗口是否已经打开"""
+    try:
+        return len(find_pengyouquan_windows()) > 0
+    except Exception:
+        return False
+
 def is_wechat_in_foreground():
     """检测微信窗口是否已在前台"""
     try:
@@ -1485,19 +1509,66 @@ def check_and_perform_dianzan(dianzan_position, enable_comment=False, comment_te
             return False
             
         # 点击点赞按钮弹出界面
+        print(f"🎯 准备点击目标点赞点: ({dianzan_position[0]},{dianzan_position[1]})")
         pyautogui.click(dianzan_position[0], dianzan_position[1])
         print("✅ 已点击点赞按钮，等待界面弹出...")
         time.sleep(1.5)  # 等待界面弹出
         
+        def find_closest_icon_near_click(icon_path, icon_label, confidence=0.8):
+            """在点击点附近查找最相关的图标，避免误匹配到上一条朋友圈"""
+            if not os.path.exists(icon_path):
+                print(f"⚠️ 未找到资源文件: {icon_label}")
+                return None
+
+            icon_image = load_image_with_chinese_path(icon_path)
+            if not icon_image:
+                return None
+
+            try:
+                matches = list(pyautogui.locateAllOnScreen(icon_image, confidence=confidence))
+            except Exception as e:
+                print(f"⚠️ 图标识别异常({icon_label}): {e}")
+                return None
+
+            if not matches:
+                print(f"ℹ️ 当前屏幕未识别到图标: {icon_label}")
+                return None
+
+            click_x, click_y = dianzan_position
+            best_match = None
+            best_score = None
+
+            for m in matches:
+                center_x = m.left + m.width // 2
+                center_y = m.top + m.height // 2
+
+                # 弹窗通常出现在点赞按钮右侧附近，优先限制在点击点附近
+                if abs(center_y - click_y) > 140:
+                    continue
+                if center_x < click_x - 60:
+                    continue
+                if center_x - click_x > 360:
+                    continue
+
+                score = (abs(center_y - click_y), max(0, center_x - click_x))
+                if best_score is None or score < best_score:
+                    best_score = score
+                    best_match = m
+
+            if best_match:
+                bm_x = best_match.left + best_match.width // 2
+                bm_y = best_match.top + best_match.height // 2
+                print(f"🎯 图标匹配({icon_label}): 目标点赞点=({click_x},{click_y}), 实际图标点=({bm_x},{bm_y})")
+            else:
+                print(f"ℹ️ 图标存在但无近邻匹配: {icon_label}，目标点赞点=({click_x},{click_y})")
+
+            return best_match
+
         # 检测已点赞状态 (yizan.png)
         print("🔍 正在识别已点赞状态图标 (yizan.png)...")
         try:
             yizan_icon_path = get_resource_path('assets/yizan.png')
-            if os.path.exists(yizan_icon_path):
-                yizan_image = load_image_with_chinese_path(yizan_icon_path)
-                yizan_icon = pyautogui.locateOnScreen(yizan_image, confidence=0.8) if yizan_image else None
-            else:
-                yizan_icon = None
+            yizan_icon = find_closest_icon_near_click(yizan_icon_path, "yizan.png", confidence=0.8)
             if yizan_icon:
                 print(f"✅ 检测到已点赞状态，位置: {yizan_icon}，无需重复点赞")
                 
@@ -1521,11 +1592,7 @@ def check_and_perform_dianzan(dianzan_position, enable_comment=False, comment_te
         print("🔍 正在识别未点赞状态图标 (nozan.png)...")
         try:
             nozan_icon_path = get_resource_path('assets/nozan.png')
-            if os.path.exists(nozan_icon_path):
-                nozan_image = load_image_with_chinese_path(nozan_icon_path)
-                nozan_icon = pyautogui.locateOnScreen(nozan_image, confidence=0.8) if nozan_image else None
-            else:
-                nozan_icon = None
+            nozan_icon = find_closest_icon_near_click(nozan_icon_path, "nozan.png", confidence=0.8)
             if nozan_icon:
                 print(f"✅ 检测到未点赞状态，位置: {nozan_icon}，执行点赞操作")
                 # 点击点赞图标进行点赞
@@ -1554,11 +1621,7 @@ def check_and_perform_dianzan(dianzan_position, enable_comment=False, comment_te
         try:
             # 尝试查找并点击点赞相关的图标
             dianzan_in_popup_path = get_resource_path('assets/dianzan.png')
-            if os.path.exists(dianzan_in_popup_path):
-                dianzan_image = load_image_with_chinese_path(dianzan_in_popup_path)
-                dianzan_in_popup = pyautogui.locateOnScreen(dianzan_image, confidence=0.7) if dianzan_image else None
-            else:
-                dianzan_in_popup = None
+            dianzan_in_popup = find_closest_icon_near_click(dianzan_in_popup_path, "dianzan.png", confidence=0.7)
             if dianzan_in_popup:
                 pyautogui.click(dianzan_in_popup)
                 time.sleep(1)
@@ -2979,6 +3042,171 @@ def optimized_pengyouquan_dianzan_action(target_name, enable_comment=False, comm
     return False
 
 
+def _collect_dianzan_positions_in_region(pengyouquan_region):
+    """在当前朋友圈窗口区域内收集点赞按钮位置（按从上到下排序）"""
+    if not pengyouquan_region:
+        return []
+
+    dianzan_icon_path = get_resource_path('assets/dianzan.png')
+    if not os.path.exists(dianzan_icon_path):
+        print("❌ 未找到点赞图标资源文件: assets/dianzan.png")
+        return []
+
+    left, top, right, bottom = pengyouquan_region
+    width, height = right - left, bottom - top
+    if width <= 0 or height <= 0:
+        return []
+
+    all_positions = []
+    confidence_levels = [0.85, 0.80, 0.75, 0.70]
+
+    for confidence in confidence_levels:
+        try:
+            matches = list(pyautogui.locateAllOnScreen(
+                dianzan_icon_path,
+                confidence=confidence,
+                region=(left, top, width, height)
+            ))
+            for m in matches:
+                center_x = m.left + m.width // 2
+                center_y = m.top + m.height // 2
+                all_positions.append((center_x, center_y))
+        except Exception as e:
+            print(f"⚠️ 点赞图标识别失败(置信度 {confidence}): {e}")
+
+    # 去重：同一区域识别到多个重叠点时合并
+    unique_positions = []
+    for x, y in sorted(all_positions, key=lambda p: (p[1], p[0])):
+        duplicate = False
+        for ux, uy in unique_positions:
+            if abs(x - ux) <= 15 and abs(y - uy) <= 15:
+                duplicate = True
+                break
+        if not duplicate:
+            unique_positions.append((x, y))
+
+    print(f"🔎 当前窗口识别到点赞按钮数量: {len(unique_positions)}")
+    return unique_positions
+
+
+def _extract_first_line_username_candidates(ocr_result, pengyouquan_region):
+    """提取“头像右边第一行”风格的用户名候选"""
+    if not ocr_result or not pengyouquan_region:
+        return []
+
+    left, top, right, bottom = pengyouquan_region
+    width = right - left
+    if width <= 0:
+        return []
+
+    filtered = []
+    noise_keywords = [
+        "分钟前", "小时前", "刚刚", "今天", "昨天", "删除", "评论", "点赞", "赞", "全文", "收起"
+    ]
+
+    for line in ocr_result:
+        if len(line) < 2:
+            continue
+
+        bbox = line[0] if len(line) >= 1 else None
+        text = str(line[1]).strip()
+        if not bbox or not text:
+            continue
+
+        # 基础过滤
+        if len(text) > 20 or text.isdigit():
+            continue
+        if any(k in text for k in noise_keywords):
+            continue
+
+        has_chinese = any('\u4e00' <= c <= '\u9fff' for c in text)
+        has_english = any(c.isalpha() for c in text)
+        if not (has_chinese or has_english):
+            continue
+
+        xs = [pt[0] for pt in bbox]
+        ys = [pt[1] for pt in bbox]
+        rel_x = int(min(xs))
+        rel_y = int(min(ys))
+        center_rel_x = int(sum(xs) / len(xs))
+        center_rel_y = int(sum(ys) / len(ys))
+
+        # 头像在最左侧，用户名通常位于其右边靠左区域
+        x_ratio = rel_x / max(width, 1)
+        if x_ratio < 0.08 or x_ratio > 0.55:
+            continue
+
+        filtered.append({
+            "text": text,
+            "rel_x": rel_x,
+            "rel_y": rel_y,
+            "abs_x": left + center_rel_x,
+            "abs_y": top + center_rel_y,
+        })
+
+    if not filtered:
+        return []
+
+    # “第一行”规则：按行聚合，保留每行最靠左的名字候选
+    row_groups = {}
+    row_height = 28
+    for item in filtered:
+        row_key = item["rel_y"] // row_height
+        row_groups.setdefault(row_key, []).append(item)
+
+    first_line_candidates = []
+    for _, row_items in row_groups.items():
+        row_items.sort(key=lambda it: it["rel_x"])
+        leftmost_x = row_items[0]["rel_x"]
+        # 允许同一行轻微偏移，保留最可能是用户名的左侧文本
+        keep = [it for it in row_items if it["rel_x"] <= leftmost_x + 20]
+        if keep:
+            first_line_candidates.append(keep[0])
+
+    first_line_candidates.sort(key=lambda it: it["abs_y"])
+    print(f"🔎 头像右侧第一行用户名候选数量: {len(first_line_candidates)}")
+    return first_line_candidates
+
+
+def _map_username_to_first_dianzan(username_candidates, dianzan_positions):
+    """将每个用户名映射到其右下方第一个点赞按钮"""
+    if not username_candidates or not dianzan_positions:
+        return []
+
+    mappings = []
+    used_like_positions = set()
+
+    for user in username_candidates:
+        name_x = user["abs_x"]
+        name_y = user["abs_y"]
+
+        best_like = None
+        best_score = None
+
+        for icon_x, icon_y in dianzan_positions:
+            # 头像右侧第一行 -> 点赞按钮应在其右下方，且优先“第一个出现”的点赞按钮
+            if icon_y <= name_y + 12:
+                continue
+            if icon_y - name_y > 420:
+                continue
+            if icon_x <= name_x + 30:
+                continue
+
+            # 先按垂直距离，再按水平距离，匹配“第一个出现”的点赞位置
+            score = (icon_y - name_y, abs(icon_x - name_x))
+            if best_score is None or score < best_score:
+                best_score = score
+                best_like = (icon_x, icon_y)
+
+        if best_like and best_like not in used_like_positions:
+            used_like_positions.add(best_like)
+            post_id = (round(best_like[1] / 10) * 10, round(best_like[0] / 10) * 10)
+            mappings.append((user["text"], post_id, (name_x, name_y), best_like))
+
+    print(f"🔗 用户与第一个点赞按钮映射数量: {len(mappings)}")
+    return mappings
+
+
 def pengyouquan_like_all_action(status_callback=None, stop_flag_func=None, max_posts=None, max_retries_per_post=2):
     """
     给所有人点赞的功能 - 遍历朋友圈并对所有可见的内容进行点赞
@@ -3009,14 +3237,32 @@ def pengyouquan_like_all_action(status_callback=None, stop_flag_func=None, max_p
     STOP_THRESHOLD = 7  # 如果连续看到7个已点赞的posts，认为已到循环点，停止滚动
     
     try:
-        # 首先激活朋友圈窗口
-        if not ensure_wechat_is_active():
-            print("❌ 微信窗口未激活")
+        # 优先复用当前已打开的朋友圈窗口，避免重复打开导致回到顶部
+        if is_pengyouquan_window_open():
+            print("✅ 检测到朋友圈窗口已打开，直接从当前窗口位置开始")
             if status_callback:
-                status_callback("❌ 微信窗口未激活，无法继续")
-            return {'success': 0, 'failed': 0, 'skipped': 0}
-        
-        time.sleep(1)
+                status_callback("✅ 已检测到朋友圈窗口，继续从当前可见位置点赞")
+        else:
+            print("ℹ️ 未检测到已打开的朋友圈窗口，尝试激活微信并打开朋友圈")
+            if not ensure_wechat_is_active():
+                print("❌ 微信窗口未激活")
+                if status_callback:
+                    status_callback("❌ 微信窗口未激活，无法继续")
+                return {'success': 0, 'failed': 0, 'skipped': 0}
+
+            time.sleep(1)
+            if not find_and_click_pengyouquan(stop_flag_func=stop_flag_func):
+                print("❌ 未能打开朋友圈窗口")
+                if status_callback:
+                    status_callback("❌ 未能打开朋友圈，请手动打开后重试")
+                return {'success': 0, 'failed': 0, 'skipped': 0}
+
+            time.sleep(1)
+            if not is_pengyouquan_window_open():
+                print("❌ 朋友圈窗口未成功打开")
+                if status_callback:
+                    status_callback("❌ 朋友圈窗口未打开，请手动切换到朋友圈")
+                return {'success': 0, 'failed': 0, 'skipped': 0}
         
         # 开始滚动朋友圈并对所有内容进行点赞
         scroll_count = 0
@@ -3063,34 +3309,24 @@ def pengyouquan_like_all_action(status_callback=None, stop_flag_func=None, max_p
                     
                     if result and len(result) > 0:
                         print(f"📋 本次识别到 {len(result)} 行文字")
-                        
-                        # 查找用户名（朋友圈用户名通常在特定位置）
+
+                        # 规则1：头像在左侧，用户名取右侧第一行候选
+                        username_candidates = _extract_first_line_username_candidates(result, pengyouquan_region)
+
+                        # 规则2：点赞按钮取该用户名右下方第一个出现的dianzan.png
+                        dianzan_positions = _collect_dianzan_positions_in_region(pengyouquan_region)
+                        mapped_posts = _map_username_to_first_dianzan(username_candidates, dianzan_positions)
+
                         found_users_this_round = []
                         found_already_liked_this_round = 0  # 本轮找到的已点赞posts数
-                        
-                        for line in result:
-                            if len(line) >= 2:
-                                text = line[1]
-                                bbox = line[0] if len(line) >= 1 else None
-                                
-                                # 简单启发式：跳过纯数字、纯符号、太短或太长的文本
-                                if len(text.strip()) > 0 and len(text.strip()) <= 20 and not text.isdigit():
-                                    # 检查是否看起来像用户名（包含中文字符或英文）
-                                    has_chinese = any('\u4e00' <= c <= '\u9fff' for c in text)
-                                    has_english = any(c.isalpha() for c in text)
-                                    
-                                    if has_chinese or has_english:
-                                        # 使用坐标作为唯一标识，防止重复
-                                        if bbox:
-                                            post_id = (round(bbox[0][1] / 10) * 10, round(bbox[0][0] / 10) * 10)  # 粗粒度位置作为ID
-                                            
-                                            if post_id not in liked_posts:
-                                                found_users_this_round.append((text, post_id))
-                                                print(f"   - 发现新内容: {text}")
-                                            else:
-                                                # 这是一个已经点赞过的post
-                                                found_already_liked_this_round += 1
-                                                print(f"   - ⏭️ 已点赞过: {text}")
+
+                        for user_name, post_id, name_pos, dianzan_pos in mapped_posts:
+                            if post_id not in liked_posts:
+                                found_users_this_round.append((user_name, post_id, name_pos, dianzan_pos))
+                                print(f"   - 发现新内容: {user_name}, 点赞位置: {dianzan_pos}")
+                            else:
+                                found_already_liked_this_round += 1
+                                print(f"   - ⏭️ 已处理过: {user_name}")
                         
                         # 检查本轮是否全是已点赞的内容（循环检测）
                         if found_users_this_round:
@@ -3099,7 +3335,7 @@ def pengyouquan_like_all_action(status_callback=None, stop_flag_func=None, max_p
                             consecutive_failures = 0
                             
                             # 对本轮发现的用户进行点赞尝试
-                            for user_name, post_id in found_users_this_round:
+                            for user_name, post_id, name_pos, dianzan_pos in found_users_this_round:
                                 # 检查停止标志
                                 if stop_flag_func and stop_flag_func():
                                     print("⏹️ 给所有人点赞操作被停止")
@@ -3119,9 +3355,9 @@ def pengyouquan_like_all_action(status_callback=None, stop_flag_func=None, max_p
                                 
                                 if status_callback:
                                     status_callback(f"👍 ({post_count}) 正在点赞: {user_name}...")
-                                
-                                # 使用优化的点赞函数
-                                if optimized_pengyouquan_dianzan_action(user_name, stop_flag_func=stop_flag_func, retry_attempts=max_retries_per_post):
+
+                                # 优先使用当前映射出的“右下方第一个点赞按钮”进行点赞
+                                if check_and_perform_dianzan(dianzan_pos, stop_flag_func=stop_flag_func):
                                     success_count += 1
                                     liked_posts.add(post_id)
                                     print(f"✅ 成功点赞: {user_name}")
@@ -3129,10 +3365,23 @@ def pengyouquan_like_all_action(status_callback=None, stop_flag_func=None, max_p
                                         status_callback(f"✅ 成功点赞: {user_name}")
                                     time.sleep(0.5)  # 点赞后等待
                                 else:
-                                    failed_count += 1
-                                    print(f"❌ 失败点赞: {user_name}")
-                                    if status_callback:
-                                        status_callback(f"❌ 失败点赞: {user_name}")
+                                    print(f"⚠️ 直接位置点赞失败，尝试按用户名重试: {user_name}")
+                                    # 兜底：再按用户名走原流程重试
+                                    if optimized_pengyouquan_dianzan_action(
+                                        user_name,
+                                        stop_flag_func=stop_flag_func,
+                                        retry_attempts=max_retries_per_post
+                                    ):
+                                        success_count += 1
+                                        liked_posts.add(post_id)
+                                        print(f"✅ 兜底重试成功: {user_name}")
+                                        if status_callback:
+                                            status_callback(f"✅ 兜底重试成功: {user_name}")
+                                    else:
+                                        failed_count += 1
+                                        print(f"❌ 失败点赞: {user_name}")
+                                        if status_callback:
+                                            status_callback(f"❌ 失败点赞: {user_name}")
                         else:
                             # 本轮全是已点赞的内容或者没有发现任何内容
                             if found_already_liked_this_round > 0:

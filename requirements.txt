@@ -8,3 +8,5 @@ rapidocr-onnxruntime>=1.3.0
 scikit-learn>=1.3.0
 PyQt5==5.15.10
 psutil>=5.9.0
+keyboard>=0.13.5
+pynput>=1.7.7

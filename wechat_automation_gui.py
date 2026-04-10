@@ -9,13 +9,31 @@ import sys
 import os
 import threading
 import time
+import pyautogui
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                             QHBoxLayout, QGridLayout, QPushButton, QLabel, 
                             QLineEdit, QTextEdit, QGroupBox, QFrame, QMessageBox,
                             QProgressBar, QTabWidget, QSplitter, QScrollArea,
-                            QComboBox, QCheckBox, QSpinBox, QStackedWidget, QListWidget, QListWidgetItem, QRadioButton)
+                            QComboBox, QCheckBox, QSpinBox, QStackedWidget, QListWidget, QListWidgetItem, QRadioButton,
+                            QShortcut)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer, QPropertyAnimation, QEasingCurve
-from PyQt5.QtGui import QFont, QIcon, QPalette, QColor, QPixmap, QPainter, QLinearGradient, QTextCursor
+from PyQt5.QtGui import QFont, QIcon, QPalette, QColor, QPixmap, QPainter, QLinearGradient, QTextCursor, QKeySequence
+
+try:
+    import keyboard as keyboard_hotkey
+    KEYBOARD_HOTKEY_AVAILABLE = True
+except ImportError:
+    keyboard_hotkey = None
+    KEYBOARD_HOTKEY_AVAILABLE = False
+    print("⚠️ keyboard 模块不可用，F10全局热键功能将不可用")
+
+try:
+    from pynput import keyboard as pynput_keyboard
+    PYNPUT_HOTKEY_AVAILABLE = True
+except ImportError:
+    pynput_keyboard = None
+    PYNPUT_HOTKEY_AVAILABLE = False
+    print("⚠️ pynput 模块不可用，备用全局热键监听将不可用")
 
 # 导入OCR引擎模块（延迟初始化）
 try:
@@ -315,6 +333,7 @@ class WeChatAutomationGUI(QMainWindow):
     """微信自动化工具主界面"""
     # 定义信号，用于从worker线程安全地更新UI
     status_updated = pyqtSignal(str, str)  # (message, color)
+    aux_like_triggered = pyqtSignal(bool)
     
     def __init__(self):
         super().__init__()
@@ -323,9 +342,21 @@ class WeChatAutomationGUI(QMainWindow):
         self._previous_mode = 'contact'  # 初始化为联系人模式
         self._stop_broadcast = False  # 停止群发消息标志
         self._stop_moments = False  # 停止朋友圈操作标志
+        self._aux_like_hotkey_registered = False
+        self._aux_like_hotkey_id = None
+        self._aux_like_pynput_listener = None
+        self._aux_like_pynput_registered = False
+        self._aux_like_last_trigger_time = 0.0
+        self._aux_like_lock = threading.Lock()
         self.init_ui()
         # 连接status_updated信号到update_status_impl方法（在主线程执行）
         self.status_updated.connect(self.update_status_impl)
+        self.aux_like_triggered.connect(self.execute_aux_like_once)
+
+        # 兜底：窗口内F10快捷键（当程序窗口有焦点时可用）
+        self.aux_like_shortcut = QShortcut(QKeySequence("F10"), self)
+        self.aux_like_shortcut.setContext(Qt.ApplicationShortcut)
+        self.aux_like_shortcut.activated.connect(lambda: self.aux_like_triggered.emit(True))
         # 加载上次的输入内容（需要在UI创建后调用）
         self.load_last_inputs()
         # 连接实时保存信号（在加载输入内容之后连接）
@@ -1216,6 +1247,88 @@ class WeChatAutomationGUI(QMainWindow):
         button_layout.addStretch()
         
         layout.addLayout(button_layout)
+
+        # 辅助点赞（F10）
+        helper_group = QGroupBox("辅助点赞")
+        helper_group.setFont(QFont("Microsoft YaHei", 10, QFont.Bold))
+        helper_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                border: 3px solid #FFB6C1;
+                border-radius: 15px;
+                margin-top: 15px;
+                padding-top: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFF5F7, stop:1 #FFFFFF);
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #FF69B4;
+                font-family: "微软雅黑";
+                font-size: 11pt;
+            }
+        """)
+
+        helper_layout = QVBoxLayout(helper_group)
+        helper_layout.setSpacing(12)
+
+        self.aux_like_enable_checkbox = QCheckBox("启用F10辅助点赞（每按一次F10仅执行一次）")
+        self.aux_like_enable_checkbox.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_enable_checkbox.setToolTip("启用后按F10会在当前鼠标位置点击一次，再在偏移位置点击一次")
+        self.aux_like_enable_checkbox.stateChanged.connect(self.on_aux_like_hotkey_changed)
+        helper_layout.addWidget(self.aux_like_enable_checkbox)
+
+        helper_config_layout = QHBoxLayout()
+        helper_config_layout.setSpacing(10)
+
+        offset_x_label = QLabel("水平偏移:")
+        offset_x_label.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_offset_x_spinbox = QSpinBox()
+        self.aux_like_offset_x_spinbox.setRange(-500, 500)
+        self.aux_like_offset_x_spinbox.setValue(120)
+        self.aux_like_offset_x_spinbox.setSuffix(" px")
+        self.aux_like_offset_x_spinbox.setFont(QFont("Microsoft YaHei", 10))
+
+        offset_y_label = QLabel("垂直偏移:")
+        offset_y_label.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_offset_y_spinbox = QSpinBox()
+        self.aux_like_offset_y_spinbox.setRange(-500, 500)
+        self.aux_like_offset_y_spinbox.setValue(0)
+        self.aux_like_offset_y_spinbox.setSuffix(" px")
+        self.aux_like_offset_y_spinbox.setFont(QFont("Microsoft YaHei", 10))
+
+        delay_label = QLabel("两次点击间隔:")
+        delay_label.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_delay_spinbox = QSpinBox()
+        self.aux_like_delay_spinbox.setRange(0, 2000)
+        self.aux_like_delay_spinbox.setValue(120)
+        self.aux_like_delay_spinbox.setSuffix(" ms")
+        self.aux_like_delay_spinbox.setFont(QFont("Microsoft YaHei", 10))
+
+        self.aux_like_test_btn = ModernButton("测试执行一次", "secondary")
+        self.aux_like_test_btn.setFixedSize(130, 42)
+        self.aux_like_test_btn.clicked.connect(self.execute_aux_like_once)
+        self.aux_like_test_btn.setToolTip("立即执行一次辅助点赞动作（当前点 + 偏移点）")
+
+        helper_config_layout.addWidget(offset_x_label)
+        helper_config_layout.addWidget(self.aux_like_offset_x_spinbox)
+        helper_config_layout.addWidget(offset_y_label)
+        helper_config_layout.addWidget(self.aux_like_offset_y_spinbox)
+        helper_config_layout.addWidget(delay_label)
+        helper_config_layout.addWidget(self.aux_like_delay_spinbox)
+        helper_config_layout.addWidget(self.aux_like_test_btn)
+        helper_config_layout.addStretch()
+
+        helper_layout.addLayout(helper_config_layout)
+
+        helper_hint = QLabel("说明：F10 触发后仅执行一次，先点击当前鼠标位置，再点击偏移位置（可用于快速辅助点赞）")
+        helper_hint.setFont(QFont("Microsoft YaHei", 9))
+        helper_hint.setStyleSheet("color: #666666;")
+        helper_layout.addWidget(helper_hint)
+
+        layout.addWidget(helper_group)
         
         layout.addStretch()
         return moments_widget
@@ -2059,6 +2172,18 @@ class WeChatAutomationGUI(QMainWindow):
             
             if hasattr(self, 'enable_window_resize_checkbox'):
                 self.enable_window_resize_checkbox.stateChanged.connect(self.save_last_inputs)
+
+            if hasattr(self, 'aux_like_enable_checkbox'):
+                self.aux_like_enable_checkbox.stateChanged.connect(self.save_last_inputs)
+
+            if hasattr(self, 'aux_like_offset_x_spinbox'):
+                self.aux_like_offset_x_spinbox.valueChanged.connect(self.save_last_inputs)
+
+            if hasattr(self, 'aux_like_offset_y_spinbox'):
+                self.aux_like_offset_y_spinbox.valueChanged.connect(self.save_last_inputs)
+
+            if hasattr(self, 'aux_like_delay_spinbox'):
+                self.aux_like_delay_spinbox.valueChanged.connect(self.save_last_inputs)
                 
         except Exception as e:
             print(f"连接自动保存信号失败: {e}")
@@ -2155,6 +2280,19 @@ class WeChatAutomationGUI(QMainWindow):
             # 保存窗口大小调整选项
             if hasattr(self, 'enable_window_resize_checkbox'):
                 config['last_inputs']['enable_window_resize'] = self.enable_window_resize_checkbox.isChecked()
+
+            # 保存辅助点赞设置
+            if hasattr(self, 'aux_like_enable_checkbox'):
+                config['last_inputs']['aux_like_hotkey_enabled'] = self.aux_like_enable_checkbox.isChecked()
+
+            if hasattr(self, 'aux_like_offset_x_spinbox'):
+                config['last_inputs']['aux_like_offset_x'] = self.aux_like_offset_x_spinbox.value()
+
+            if hasattr(self, 'aux_like_offset_y_spinbox'):
+                config['last_inputs']['aux_like_offset_y'] = self.aux_like_offset_y_spinbox.value()
+
+            if hasattr(self, 'aux_like_delay_spinbox'):
+                config['last_inputs']['aux_like_delay_ms'] = self.aux_like_delay_spinbox.value()
             
             # 写入配置文件
             with open(config_file, 'w', encoding='utf-8') as f:
@@ -2332,6 +2470,22 @@ class WeChatAutomationGUI(QMainWindow):
             # 恢复窗口大小调整选项
             if hasattr(self, 'enable_window_resize_checkbox') and 'enable_window_resize' in last_inputs:
                 self.enable_window_resize_checkbox.setChecked(last_inputs['enable_window_resize'])
+
+            # 恢复辅助点赞设置
+            if hasattr(self, 'aux_like_offset_x_spinbox') and 'aux_like_offset_x' in last_inputs:
+                self.aux_like_offset_x_spinbox.setValue(last_inputs['aux_like_offset_x'])
+
+            if hasattr(self, 'aux_like_offset_y_spinbox') and 'aux_like_offset_y' in last_inputs:
+                self.aux_like_offset_y_spinbox.setValue(last_inputs['aux_like_offset_y'])
+
+            if hasattr(self, 'aux_like_delay_spinbox') and 'aux_like_delay_ms' in last_inputs:
+                self.aux_like_delay_spinbox.setValue(last_inputs['aux_like_delay_ms'])
+
+            if hasattr(self, 'aux_like_enable_checkbox'):
+                enabled = last_inputs.get('aux_like_hotkey_enabled', False)
+                self.aux_like_enable_checkbox.setChecked(enabled)
+                # load阶段信号可能尚未连接，主动同步一次热键状态
+                self.on_aux_like_hotkey_changed(2 if enabled else 0)
                 
         except Exception as e:
             print(f"加载输入内容失败: {e}")
@@ -2382,6 +2536,148 @@ class WeChatAutomationGUI(QMainWindow):
         except Exception as e:
             print(f"❌ 类型切换时发生错误: {e}")
             self._switching_type = False
+
+    def on_aux_like_hotkey_changed(self, state):
+        """启用/禁用F10辅助点赞热键"""
+        enabled = (state == 2)
+
+        if enabled:
+            keyboard_ok = False
+            pynput_ok = False
+
+            # 先尝试 keyboard 库
+            try:
+                if KEYBOARD_HOTKEY_AVAILABLE:
+                    if self._aux_like_hotkey_registered and self._aux_like_hotkey_id is not None:
+                        keyboard_hotkey.remove_hotkey(self._aux_like_hotkey_id)
+
+                    self._aux_like_hotkey_id = keyboard_hotkey.add_hotkey(
+                        'f10',
+                        lambda: self.aux_like_triggered.emit(True),
+                        suppress=False,
+                        trigger_on_release=True
+                    )
+                    self._aux_like_hotkey_registered = True
+                    keyboard_ok = True
+            except Exception as e:
+                self._aux_like_hotkey_registered = False
+                self._aux_like_hotkey_id = None
+                self.update_status(f"⚠️ keyboard热键注册失败: {e}", "#FF69B4")
+
+            # 再尝试 pynput 备用监听
+            try:
+                if PYNPUT_HOTKEY_AVAILABLE:
+                    if self._aux_like_pynput_listener:
+                        try:
+                            self._aux_like_pynput_listener.stop()
+                        except Exception:
+                            pass
+                        self._aux_like_pynput_listener = None
+
+                    def _on_press(key):
+                        try:
+                            if key == pynput_keyboard.Key.f10:
+                                self.aux_like_triggered.emit(True)
+                        except Exception:
+                            pass
+
+                    self._aux_like_pynput_listener = pynput_keyboard.Listener(on_press=_on_press)
+                    self._aux_like_pynput_listener.daemon = True
+                    self._aux_like_pynput_listener.start()
+                    self._aux_like_pynput_registered = True
+                    pynput_ok = True
+            except Exception as e:
+                self._aux_like_pynput_listener = None
+                self._aux_like_pynput_registered = False
+                self.update_status(f"⚠️ pynput热键注册失败: {e}", "#FF69B4")
+
+            if keyboard_ok or pynput_ok:
+                engines = []
+                if keyboard_ok:
+                    engines.append("keyboard")
+                if pynput_ok:
+                    engines.append("pynput")
+                self.update_status(f"✅ 已启用辅助点赞热键：F10（引擎: {', '.join(engines)}）", "#FF69B4")
+            else:
+                self.update_status("❌ 启用F10热键失败：全局监听不可用", "#f44336")
+                self.aux_like_enable_checkbox.blockSignals(True)
+                self.aux_like_enable_checkbox.setChecked(False)
+                self.aux_like_enable_checkbox.blockSignals(False)
+        else:
+            try:
+                if self._aux_like_hotkey_registered and self._aux_like_hotkey_id is not None:
+                    keyboard_hotkey.remove_hotkey(self._aux_like_hotkey_id)
+                self._aux_like_hotkey_registered = False
+                self._aux_like_hotkey_id = None
+
+                if self._aux_like_pynput_listener is not None:
+                    try:
+                        self._aux_like_pynput_listener.stop()
+                    except Exception:
+                        pass
+                self._aux_like_pynput_listener = None
+                self._aux_like_pynput_registered = False
+
+                self.update_status("⏹️ 已关闭辅助点赞热键", "#FF69B4")
+            except Exception as e:
+                self.update_status(f"⚠️ 关闭F10热键时出现问题: {e}", "#FF69B4")
+
+    def execute_aux_like_once(self, from_hotkey=False):
+        """执行一次辅助点赞动作：当前点 + 偏移点"""
+        if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
+            return
+
+        with self._aux_like_lock:
+            now = time.time()
+            if now - self._aux_like_last_trigger_time < 0.25:
+                return
+            self._aux_like_last_trigger_time = now
+
+        try:
+            offset_x = self.aux_like_offset_x_spinbox.value()
+            offset_y = self.aux_like_offset_y_spinbox.value()
+            delay_ms = self.aux_like_delay_spinbox.value()
+
+            current_pos = pyautogui.position()
+            target_x = current_pos.x + offset_x
+            target_y = current_pos.y + offset_y
+
+            trigger_source = "F10" if from_hotkey else "测试按钮"
+            self.update_status(
+                f"🖱️ 辅助点赞({trigger_source})：先点({current_pos.x},{current_pos.y})，再点({target_x},{target_y})",
+                "#FF69B4"
+            )
+
+            pyautogui.click(current_pos.x, current_pos.y)
+            if delay_ms > 0:
+                time.sleep(delay_ms / 1000.0)
+            pyautogui.click(target_x, target_y)
+
+            # 执行完成后将鼠标移回原始位置，避免影响后续操作
+            pyautogui.moveTo(current_pos.x, current_pos.y, duration=0.08)
+
+        except Exception as e:
+            self.update_status(f"❌ 辅助点赞执行失败: {e}", "#f44336")
+
+    def closeEvent(self, event):
+        """窗口关闭时清理全局热键"""
+        try:
+            if self._aux_like_hotkey_registered and self._aux_like_hotkey_id is not None and KEYBOARD_HOTKEY_AVAILABLE:
+                keyboard_hotkey.remove_hotkey(self._aux_like_hotkey_id)
+                self._aux_like_hotkey_registered = False
+                self._aux_like_hotkey_id = None
+
+            if self._aux_like_pynput_listener is not None:
+                try:
+                    self._aux_like_pynput_listener.stop()
+                except Exception:
+                    pass
+            self._aux_like_pynput_listener = None
+            self._aux_like_pynput_registered = False
+        except Exception:
+            pass
+
+        super().closeEvent(event)
     
 def main():
     """主函数"""
