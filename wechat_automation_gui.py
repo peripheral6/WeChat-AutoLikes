@@ -1307,6 +1307,22 @@ class WeChatAutomationGUI(QMainWindow):
         self.aux_like_delay_spinbox.setSuffix(" ms")
         self.aux_like_delay_spinbox.setFont(QFont("Microsoft YaHei", 10))
 
+        scroll_label = QLabel("完成后下滚:")
+        scroll_label.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_scroll_lines_spinbox = QSpinBox()
+        self.aux_like_scroll_lines_spinbox.setRange(0, 500)
+        self.aux_like_scroll_lines_spinbox.setValue(0)
+        self.aux_like_scroll_lines_spinbox.setSuffix(" 行")
+        self.aux_like_scroll_lines_spinbox.setFont(QFont("Microsoft YaHei", 10))
+        
+        scroll_delay_label = QLabel("下滚前延时:")
+        scroll_delay_label.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_scroll_delay_spinbox = QSpinBox()
+        self.aux_like_scroll_delay_spinbox.setRange(0, 5000)
+        self.aux_like_scroll_delay_spinbox.setValue(0)
+        self.aux_like_scroll_delay_spinbox.setSuffix(" ms")
+        self.aux_like_scroll_delay_spinbox.setFont(QFont("Microsoft YaHei", 10))
+
         self.aux_like_test_btn = ModernButton("测试执行一次", "secondary")
         self.aux_like_test_btn.setFixedSize(130, 42)
         self.aux_like_test_btn.clicked.connect(self.execute_aux_like_once)
@@ -1318,12 +1334,16 @@ class WeChatAutomationGUI(QMainWindow):
         helper_config_layout.addWidget(self.aux_like_offset_y_spinbox)
         helper_config_layout.addWidget(delay_label)
         helper_config_layout.addWidget(self.aux_like_delay_spinbox)
+        helper_config_layout.addWidget(scroll_label)
+        helper_config_layout.addWidget(self.aux_like_scroll_lines_spinbox)
+        helper_config_layout.addWidget(scroll_delay_label)
+        helper_config_layout.addWidget(self.aux_like_scroll_delay_spinbox)
         helper_config_layout.addWidget(self.aux_like_test_btn)
         helper_config_layout.addStretch()
 
         helper_layout.addLayout(helper_config_layout)
 
-        helper_hint = QLabel("说明：F10 触发后仅执行一次，先点击当前鼠标位置，再点击偏移位置（可用于快速辅助点赞）")
+        helper_hint = QLabel("说明：F10 触发后仅执行一次，先点击当前鼠标位置，再点击偏移位置，最后可自动下滚指定行数")
         helper_hint.setFont(QFont("Microsoft YaHei", 9))
         helper_hint.setStyleSheet("color: #666666;")
         helper_layout.addWidget(helper_hint)
@@ -2184,6 +2204,12 @@ class WeChatAutomationGUI(QMainWindow):
 
             if hasattr(self, 'aux_like_delay_spinbox'):
                 self.aux_like_delay_spinbox.valueChanged.connect(self.save_last_inputs)
+
+            if hasattr(self, 'aux_like_scroll_lines_spinbox'):
+                self.aux_like_scroll_lines_spinbox.valueChanged.connect(self.save_last_inputs)
+            
+            if hasattr(self, 'aux_like_scroll_delay_spinbox'):
+                self.aux_like_scroll_delay_spinbox.valueChanged.connect(self.save_last_inputs)
                 
         except Exception as e:
             print(f"连接自动保存信号失败: {e}")
@@ -2293,6 +2319,12 @@ class WeChatAutomationGUI(QMainWindow):
 
             if hasattr(self, 'aux_like_delay_spinbox'):
                 config['last_inputs']['aux_like_delay_ms'] = self.aux_like_delay_spinbox.value()
+
+            if hasattr(self, 'aux_like_scroll_lines_spinbox'):
+                config['last_inputs']['aux_like_scroll_lines'] = self.aux_like_scroll_lines_spinbox.value()
+            
+            if hasattr(self, 'aux_like_scroll_delay_spinbox'):
+                config['last_inputs']['aux_like_scroll_delay'] = self.aux_like_scroll_delay_spinbox.value()
             
             # 写入配置文件
             with open(config_file, 'w', encoding='utf-8') as f:
@@ -2481,6 +2513,12 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'aux_like_delay_spinbox') and 'aux_like_delay_ms' in last_inputs:
                 self.aux_like_delay_spinbox.setValue(last_inputs['aux_like_delay_ms'])
 
+            if hasattr(self, 'aux_like_scroll_lines_spinbox') and 'aux_like_scroll_lines' in last_inputs:
+                self.aux_like_scroll_lines_spinbox.setValue(last_inputs['aux_like_scroll_lines'])
+            
+            if hasattr(self, 'aux_like_scroll_delay_spinbox') and 'aux_like_scroll_delay' in last_inputs:
+                self.aux_like_scroll_delay_spinbox.setValue(last_inputs['aux_like_scroll_delay'])
+
             if hasattr(self, 'aux_like_enable_checkbox'):
                 enabled = last_inputs.get('aux_like_hotkey_enabled', False)
                 self.aux_like_enable_checkbox.setChecked(enabled)
@@ -2623,7 +2661,7 @@ class WeChatAutomationGUI(QMainWindow):
                 self.update_status(f"⚠️ 关闭F10热键时出现问题: {e}", "#FF69B4")
 
     def execute_aux_like_once(self, from_hotkey=False):
-        """执行一次辅助点赞动作：当前点 + 偏移点"""
+        """执行一次辅助点赞动作：当前点 + 偏移点 + 可选向下滚动"""
         if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
             return
 
@@ -2633,10 +2671,21 @@ class WeChatAutomationGUI(QMainWindow):
                 return
             self._aux_like_last_trigger_time = now
 
+        original_pause = pyautogui.PAUSE
+        original_min_duration = getattr(pyautogui, 'MINIMUM_DURATION', 0.0)
+        original_min_sleep = getattr(pyautogui, 'MINIMUM_SLEEP', 0.0)
+
         try:
             offset_x = self.aux_like_offset_x_spinbox.value()
             offset_y = self.aux_like_offset_y_spinbox.value()
             delay_ms = self.aux_like_delay_spinbox.value()
+            scroll_lines = self.aux_like_scroll_lines_spinbox.value() if hasattr(self, 'aux_like_scroll_lines_spinbox') else 0
+            scroll_delay_ms = self.aux_like_scroll_delay_spinbox.value() if hasattr(self, 'aux_like_scroll_delay_spinbox') else 0
+
+            # 临时关闭PyAutoGUI全局延时，确保0ms场景也能极快执行
+            pyautogui.PAUSE = 0
+            pyautogui.MINIMUM_DURATION = 0
+            pyautogui.MINIMUM_SLEEP = 0
 
             current_pos = pyautogui.position()
             target_x = current_pos.x + offset_x
@@ -2644,20 +2693,32 @@ class WeChatAutomationGUI(QMainWindow):
 
             trigger_source = "F10" if from_hotkey else "测试按钮"
             self.update_status(
-                f"🖱️ 辅助点赞({trigger_source})：先点({current_pos.x},{current_pos.y})，再点({target_x},{target_y})",
+                f"🖱️ 辅助点赞({trigger_source})：先点({current_pos.x},{current_pos.y})，再双击({target_x},{target_y})，下滚{scroll_lines}行({scroll_delay_ms}ms延时)",
                 "#FF69B4"
             )
 
             pyautogui.click(current_pos.x, current_pos.y)
             if delay_ms > 0:
                 time.sleep(delay_ms / 1000.0)
-            pyautogui.click(target_x, target_y)
+            pyautogui.doubleClick(target_x, target_y)
 
             # 执行完成后将鼠标移回原始位置，避免影响后续操作
-            pyautogui.moveTo(current_pos.x, current_pos.y, duration=0.08)
+            pyautogui.moveTo(current_pos.x, current_pos.y, duration=0)
+
+            # 下滚前的延时
+            if scroll_delay_ms > 0 and scroll_lines > 0:
+                time.sleep(scroll_delay_ms / 1000.0)
+            
+            # 完成全部动作后，按设置向下滚动指定行数
+            if scroll_lines > 0:
+                pyautogui.scroll(-int(scroll_lines))
 
         except Exception as e:
             self.update_status(f"❌ 辅助点赞执行失败: {e}", "#f44336")
+        finally:
+            pyautogui.PAUSE = original_pause
+            pyautogui.MINIMUM_DURATION = original_min_duration
+            pyautogui.MINIMUM_SLEEP = original_min_sleep
 
     def closeEvent(self, event):
         """窗口关闭时清理全局热键"""

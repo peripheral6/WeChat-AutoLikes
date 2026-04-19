@@ -56,6 +56,7 @@
    ```bash
    python wechat_automation_gui.py
    ```
+   .\.venv\Scripts\python.exe wechat_automation_gui.py
 
 ### 使用方法
 
@@ -135,13 +136,11 @@ wechat-automation-tool/
 ## ⚠️ 注意事项
 
 1. **使用前请确保**：
-
    - 微信 PC 版已安装并可正常使用
    - 屏幕分辨率设置合适（推荐 1920x1080）
    - 微信界面语言为中文
 
 2. **使用限制**：
-
    - 请遵守微信使用规范，避免频繁操作
    - **建议点赞间隔设置为 10-30 秒**，过短可能被风控
    - 不要用于商业推广等违规用途
