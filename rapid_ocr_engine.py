@@ -34,19 +34,22 @@ class RapidOCREngine:
             logger.info("✅ RapidOCR 引擎初始化成功")
         except ImportError as e:
             logger.warning(f"❌ RapidOCR 未安装 (rapidocr_onnxruntime): {e}")
-            try:
-                # 备选方案：尝试导入 rapidocr
-                from rapidocr import RapidOCR
-                self.engine = RapidOCR()
-                self.available = True
-                logger.info("✅ RapidOCR 引擎初始化成功 (备选导入)")
-            except ImportError as e2:
-                logger.warning(f"❌ RapidOCR 未安装 (rapidocr): {e2}")
-                logger.warning("RapidOCR不可用，将使用基础模式")
-                self.available = False
+            self._init_fallback_engine()
         except Exception as e:
             logger.error(f"❌ RapidOCR 引擎初始化失败: {e}")
+            self._init_fallback_engine()
+
+    def _init_fallback_engine(self):
+        """在主引擎失败时尝试备用 RapidOCR 实现"""
+        try:
+            from rapidocr import RapidOCR
+            self.engine = RapidOCR()
+            self.available = True
+            logger.info("✅ RapidOCR 引擎初始化成功 (备用 rapidocr)")
+        except Exception as fallback_error:
+            logger.warning(f"❌ RapidOCR 备用引擎初始化失败: {fallback_error}")
             logger.warning("RapidOCR不可用，将使用基础模式")
+            self.engine = None
             self.available = False
     
     def is_available(self) -> bool:

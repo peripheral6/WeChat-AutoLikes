@@ -2742,27 +2742,37 @@ class WeChatAutomationGUI(QMainWindow):
     
 def main():
     """主函数"""
-    app = QApplication(sys.argv)
-    
-    # 设置应用程序属性
-    app.setApplicationName("WeChat自动化工具")
-    app.setApplicationVersion("2.1")
-    app.setOrganizationName("WeChatAutomation")
-    
-    # 设置全局字体
-    font = QFont("Microsoft YaHei", 9)
-    app.setFont(font)
-    
-    # 初始化OCR引擎
-    print("🔧 正在初始化GUI环境的OCR引擎...")
-    _init_gui_ocr_engines()
-    
-    # 创建主窗口
-    window = WeChatAutomationGUI()
-    window.show()
-    
-    # 运行应用程序
-    sys.exit(app.exec_())
+    try:
+        app = QApplication(sys.argv)
+        app.setQuitOnLastWindowClosed(False)
+        
+        # 设置应用程序属性
+        app.setApplicationName("WeChat自动化工具")
+        app.setApplicationVersion("2.1")
+        app.setOrganizationName("WeChatAutomation")
+        
+        # 设置全局字体
+        font = QFont("Microsoft YaHei", 9)
+        app.setFont(font)
+        
+        # 初始化OCR引擎
+        print("🔧 正在初始化GUI环境的OCR引擎...")
+        print("⚠️ 已跳过GUI启动时的OCR初始化，改为按需加载")
+        
+        # 创建主窗口
+        window = WeChatAutomationGUI()
+        app.main_window = window
+        window.show()
+        print("✅ GUI窗口已创建并显示，进入事件循环")
+        
+        # 运行应用程序
+        exit_code = app.exec_()
+        print(f"✅ GUI事件循环结束，返回码: {exit_code}")
+        sys.exit(exit_code)
+    except Exception as e:
+        import traceback
+        print(f"❌ GUI主函数启动失败: {e}")
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main()

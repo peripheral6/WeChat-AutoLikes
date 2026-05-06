@@ -61,12 +61,9 @@ except ImportError:
 # 导入OCR引擎
 try:
     from rapid_ocr_engine import get_ocr_engine
-    ocr_engine = get_ocr_engine()
-    RAPID_OCR_AVAILABLE = ocr_engine and ocr_engine.is_available()
-    if RAPID_OCR_AVAILABLE:
-        print("✅ RapidOCR核心引擎已加载")
-    else:
-        print("❌ RapidOCR核心引擎加载失败")
+    ocr_engine = None
+    RAPID_OCR_AVAILABLE = False
+    print("✅ RapidOCR核心引擎模块已导入（延迟初始化）")
 except ImportError as e:
     print(f"❌ RapidOCR引擎导入失败: {e}")
     ocr_engine = None

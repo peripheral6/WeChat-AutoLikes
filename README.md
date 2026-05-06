@@ -46,17 +46,40 @@
    cd WeChat-Group-Message-Likes
    ```
 
-2. **安装依赖**
+2. **创建虚拟环境（推荐 Python 3.12）**
+
+   ```powershell
+   py -3.12 -m venv venv312
+   ```
+
+   或激活现有的虚拟环境：
+
+   ```powershell
+   .\venv312\Scripts\Activate.ps1
+   ```
+
+3. **安装依赖**
 
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **运行程序**
-   ```bash
+   > **注意：** 如果遇到 numpy 或其他包的编译问题，虚拟环境会自动使用兼容的预编译版本。
+
+4. **运行程序**
+
+   **Windows (推荐使用 Python 3.12 虚拟环境):**
+
+   ```powershell
+   .\venv312\Scripts\python.exe wechat_automation_gui.py
+   ```
+
+   或激活虚拟环境后直接运行：
+
+   ```powershell
+   .\venv312\Scripts\Activate.ps1
    python wechat_automation_gui.py
    ```
-   .\.venv\Scripts\python.exe wechat_automation_gui.py
 
 ### 使用方法
 
