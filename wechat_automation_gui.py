@@ -108,7 +108,7 @@ except ImportError as e:
         return False
     
     def pengyouquan_like_all_action(*args, **kwargs):
-        return {'success': 0, 'failed': 0, 'skipped': 0}
+        return {'success': 0, 'failed': 0, 'skipped': 0, 'filtered': 0}
 
 
 
@@ -1024,6 +1024,7 @@ class WeChatAutomationGUI(QMainWindow):
         self.like_text_checkbox = QCheckBox("✿ 文字朋友圈")
         self.like_text_checkbox.setChecked(True)
         self.like_text_checkbox.setFont(QFont("微软雅黑", 10))
+        self.like_text_checkbox.setToolTip("仅点赞不包含图片或视频的文字类型朋友圈")
         self.like_text_checkbox.setStyleSheet("""
             QCheckBox {
                 color: #FF1493;
@@ -1044,10 +1045,11 @@ class WeChatAutomationGUI(QMainWindow):
                 border: 3px solid #FF69B4;
             }
         """)
-        
+
         self.like_image_checkbox = QCheckBox("♡ 图片朋友圈")
         self.like_image_checkbox.setChecked(True)
         self.like_image_checkbox.setFont(QFont("微软雅黑", 10))
+        self.like_image_checkbox.setToolTip("仅点赞包含图片的朋友圈（单图、多图、分享卡片）")
         self.like_image_checkbox.setStyleSheet("""
             QCheckBox {
                 color: #FF1493;
@@ -1068,10 +1070,11 @@ class WeChatAutomationGUI(QMainWindow):
                 border: 3px solid #FF69B4;
             }
         """)
-        
+
         self.like_video_checkbox = QCheckBox("★ 视频朋友圈")
         self.like_video_checkbox.setChecked(True)
         self.like_video_checkbox.setFont(QFont("微软雅黑", 10))
+        self.like_video_checkbox.setToolTip("仅点赞包含视频的朋友圈（包括视频号分享）")
         self.like_video_checkbox.setStyleSheet("""
             QCheckBox {
                 color: #FF1493;
@@ -2100,7 +2103,10 @@ class WeChatAutomationGUI(QMainWindow):
                             status_callback=status_update_callback,
                             stop_flag_func=lambda: self._stop_moments,
                             max_posts=100,  # 最多点赞100个posts
-                            max_retries_per_post=2
+                            max_retries_per_post=2,
+                            like_text=like_text,
+                            like_image=like_image,
+                            like_video=like_video
                         )
                         
                         # 检查是否在操作过程中被停止
@@ -2113,13 +2119,16 @@ class WeChatAutomationGUI(QMainWindow):
                             success_count = results.get('success', 0)
                             failed_count = results.get('failed', 0)
                             skipped_count = results.get('skipped', 0)
-                            
+                            filtered_count = results.get('filtered', 0)
+
                             # 显示统计结果
                             self.update_status(f"📊 给所有人点赞完成!", "#FF69B4")
                             self.update_status(f"✅ 成功点赞: {success_count} 个", "#FF69B4")
                             self.update_status(f"❌ 失败: {failed_count} 个", "#f44336")
                             if skipped_count > 0:
-                                self.update_status(f"⏭️ 跳过: {skipped_count} 个", "#FF69B4")
+                                self.update_status(f"⏭️ 跳过（已点赞）: {skipped_count} 个", "#FF69B4")
+                            if filtered_count > 0:
+                                self.update_status(f"⏭️ 跳过（类型过滤）: {filtered_count} 个", "#FF69B4")
                         else:
                             self.update_status("⚠️ 给所有人点赞功能返回异常结果", "#FF69B4")
                     
