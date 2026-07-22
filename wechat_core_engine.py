@@ -1506,31 +1506,31 @@ def check_and_perform_dianzan(dianzan_position, enable_comment=False, comment_te
             print("⏹️ 收到停止信号，中断点赞操作")
             return False
             
-        # 点击点赞按钮弹出界面
-        print(f"🎯 准备点击目标点赞点: ({dianzan_position[0]},{dianzan_position[1]})")
-        pyautogui.click(dianzan_position[0], dianzan_position[1])
-        print("✅ 已点击点赞按钮，等待界面弹出...")
-        time.sleep(1.5)  # 等待界面弹出
+        # ===== 前后截图对比验证弹窗是否出现 =====
+        click_x, click_y = dianzan_position
+        verify_region = (max(0, click_x - 100), max(0, click_y - 50), 250, 120)
 
-        # 验证弹窗是否真的出现了（通过像素方差检查）
         try:
-            popup_check_region = (
-                max(0, dianzan_position[0] - 80),
-                max(0, dianzan_position[1] - 20),
-                300, 180
-            )
-            popup_shot = pyautogui.screenshot(region=popup_check_region)
-            popup_array = np.array(popup_shot).astype(np.float32)
-            # 弹窗会引入明显的视觉变化（半透明覆盖层或对话框）
-            # 计算像素方差：如果有弹窗，颜色多样性会增加
-            variance = np.var(popup_array)
-            if variance < 50:  # 阈值：低于此值说明界面没有明显变化
-                print("⚠️ 未检测到点赞弹窗出现（界面无明显变化），跳过图标检测")
+            before_shot = pyautogui.screenshot(region=verify_region)
+            before_hash = hashlib.md5(np.array(before_shot).tobytes()).hexdigest()
+        except Exception:
+            before_hash = None
+
+        print(f"🎯 准备点击目标点赞点: ({click_x},{click_y})")
+        pyautogui.click(click_x, click_y)
+        print("✅ 已点击点赞按钮，等待界面弹出...")
+        time.sleep(1.5)
+
+        try:
+            after_shot = pyautogui.screenshot(region=verify_region)
+            after_hash = hashlib.md5(np.array(after_shot).tobytes()).hexdigest()
+            if before_hash and before_hash == after_hash:
+                print("⚠️ 未检测到点赞弹窗出现（点击前后界面无变化），跳过图标检测")
                 return False
             else:
-                print(f"✅ 检测到界面变化（方差={variance:.1f}），弹窗已出现")
+                print("✅ 检测到界面变化，弹窗已出现")
         except Exception as ve:
-            print(f"⚠️ 弹窗验证过程异常: {ve}")
+            print(f"⚠️ 弹窗截图验证异常: {ve}")
 
         def find_closest_icon_near_click(icon_path, icon_label, confidence=0.8):
             """在点击点附近查找最相关的图标，避免误匹配到上一条朋友圈"""

@@ -1277,7 +1277,7 @@ class WeChatAutomationGUI(QMainWindow):
         helper_layout = QVBoxLayout(helper_group)
         helper_layout.setSpacing(12)
 
-        self.aux_like_enable_checkbox = QCheckBox("启用F10辅助点赞（每按一次F10仅执行一次）")
+        self.aux_like_enable_checkbox = QCheckBox("启用F10自动辅助点赞（自动识别当前帖子，一键点赞并切换下一个）")
         self.aux_like_enable_checkbox.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_enable_checkbox.setToolTip("启用后按F10会在当前鼠标位置点击一次，再在偏移位置点击一次")
         self.aux_like_enable_checkbox.stateChanged.connect(self.on_aux_like_hotkey_changed)
