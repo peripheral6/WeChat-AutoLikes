@@ -71,7 +71,8 @@ try:
         search_contact, search_group, find_and_click_pengyouquan_with_dianzan,
         ensure_wechat_is_active, pengyouquan_dianzan_action, pengyouquan_multi_dianzan_action,
         find_and_click_pengyouquan, adjust_pengyouquan_window_size,
-        optimized_pengyouquan_dianzan_action, pengyouquan_like_all_action
+        optimized_pengyouquan_dianzan_action, pengyouquan_like_all_action,
+        auto_detect_and_like_current_post
     )
     print("✅ GUI环境：微信核心引擎已加载")
 except ImportError as e:
@@ -2670,7 +2671,7 @@ class WeChatAutomationGUI(QMainWindow):
                 self.update_status(f"⚠️ 关闭F10热键时出现问题: {e}", "#FF69B4")
 
     def execute_aux_like_once(self, from_hotkey=False):
-        """执行一次辅助点赞动作：当前点 + 偏移点 + 可选向下滚动"""
+        """执行一次辅助点赞动作：自动识别当前帖子 + 一键点赞 + 切换下一个"""
         if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
             return
 
@@ -2685,42 +2686,30 @@ class WeChatAutomationGUI(QMainWindow):
         original_min_sleep = getattr(pyautogui, 'MINIMUM_SLEEP', 0.0)
 
         try:
-            offset_x = self.aux_like_offset_x_spinbox.value()
-            offset_y = self.aux_like_offset_y_spinbox.value()
-            delay_ms = self.aux_like_delay_spinbox.value()
-            scroll_lines = self.aux_like_scroll_lines_spinbox.value() if hasattr(self, 'aux_like_scroll_lines_spinbox') else 0
-            scroll_delay_ms = self.aux_like_scroll_delay_spinbox.value() if hasattr(self, 'aux_like_scroll_delay_spinbox') else 0
-
             # 临时关闭PyAutoGUI全局延时，确保0ms场景也能极快执行
             pyautogui.PAUSE = 0
             pyautogui.MINIMUM_DURATION = 0
             pyautogui.MINIMUM_SLEEP = 0
 
-            current_pos = pyautogui.position()
-            target_x = current_pos.x + offset_x
-            target_y = current_pos.y + offset_y
-
             trigger_source = "F10" if from_hotkey else "测试按钮"
             self.update_status(
-                f"🖱️ 辅助点赞({trigger_source})：先点({current_pos.x},{current_pos.y})，再双击({target_x},{target_y})，下滚{scroll_lines}行({scroll_delay_ms}ms延时)",
+                f"🤖 自动辅助点赞({trigger_source})：正在识别当前可见帖子...",
                 "#FF69B4"
             )
 
-            pyautogui.click(current_pos.x, current_pos.y)
-            if delay_ms > 0:
-                time.sleep(delay_ms / 1000.0)
-            pyautogui.doubleClick(target_x, target_y)
+            # 调用核心引擎的自动识别点赞功能
+            success = auto_detect_and_like_current_post(ocr_engine_ref=ocr_engine)
 
-            # 执行完成后将鼠标移回原始位置，避免影响后续操作
-            pyautogui.moveTo(current_pos.x, current_pos.y, duration=0)
-
-            # 下滚前的延时
-            if scroll_delay_ms > 0 and scroll_lines > 0:
-                time.sleep(scroll_delay_ms / 1000.0)
-            
-            # 完成全部动作后，按设置向下滚动指定行数
-            if scroll_lines > 0:
-                pyautogui.scroll(-int(scroll_lines))
+            if success:
+                self.update_status(
+                    f"✅ 自动辅助点赞成功！已点赞并切换到下一个帖子",
+                    "#2ecc71"
+                )
+            else:
+                self.update_status(
+                    f"⚠️ 自动辅助点赞失败，请确保朋友圈窗口可见",
+                    "#f39c12"
+                )
 
         except Exception as e:
             self.update_status(f"❌ 辅助点赞执行失败: {e}", "#f44336")

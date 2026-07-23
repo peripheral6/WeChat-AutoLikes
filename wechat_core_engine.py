@@ -1657,11 +1657,35 @@ def check_and_perform_dianzan(dianzan_position, enable_comment=False, comment_te
                 return True
         except:
             pass
-        
+
+        # OCR后备：检测弹窗中的"赞"文字
+        print("⚠️ 模板匹配未成功，尝试OCR检测'赞'文字...")
+        try:
+            ocr_region = pyautogui.screenshot(region=(
+                max(0, click_x - 100), max(0, click_y - 50), 250, 120
+            ))
+            ocr_results = ocr_engine.recognize_text(np.array(ocr_region)) if ocr_engine else []
+            if ocr_results:
+                for det in ocr_results:
+                    if len(det) >= 2:
+                        text = str(det[1])
+                        if "赞" in text or "取消" in text:
+                            print(f"✅ OCR检测到操作栏文字'{text}'，点击确认")
+                            bbox = det[0]
+                            xs = [pt[0] for pt in bbox]
+                            ys = [pt[1] for pt in bbox]
+                            target_x = int(sum(xs) / len(xs)) + max(0, click_x - 100)
+                            target_y = int(sum(ys) / len(ys)) + max(0, click_y - 50)
+                            pyautogui.click(target_x, target_y)
+                            time.sleep(1)
+                            print("👍 OCR后备点赞操作完成")
+                            return True
+        except Exception as ocr_e:
+            print(f"⚠️ OCR后备检测失败: {ocr_e}")
 
         print("⚠️ 无法执行点赞操作")
         return False
-        
+
     except Exception as e:
         print(f"❌ 检测点赞状态失败: {e}")
         return False
@@ -3897,6 +3921,101 @@ def pengyouquan_like_all_action(status_callback=None, stop_flag_func=None, max_p
         if status_callback:
             status_callback(f"❌ 出错: {str(e)}")
         return {'success': success_count, 'failed': failed_count, 'skipped': skipped_count, 'filtered': filtered_count}
+
+
+
+
+# ==================== 自动识别辅助点赞功能 ====================
+
+def auto_detect_and_like_current_post(ocr_engine_ref=None):
+    """
+    自动识别当前朋友圈可见帖子并点赞，然后切换到下一个
+
+    流程：
+    1. 截取朋友圈窗口区域
+    2. OCR识别所有用户名和点赞按钮
+    3. 映射用户名到点赞按钮
+    4. 对第一个可见帖子执行点赞
+    5. 滚动到下一个帖子
+
+    Returns:
+        bool: 是否成功点赞至少一个帖子
+    """
+    print("\n🔍 开始自动识别当前可见帖子...")
+
+    if ocr_engine_ref and ocr_engine_ref.is_available():
+        try:
+            # 获取朋友圈窗口区域
+            pengyouquan_region = get_pengyouquan_window_region(None, enable_window_resize=False)
+
+            if not pengyouquan_region:
+                print("❌ 无法获取朋友圈窗口区域")
+                return False
+
+            left, top, right, bottom = pengyouquan_region
+            width, height = right - left, bottom - top
+
+            if width <= 0 or height <= 0 or left < 0 or top < 0:
+                print("❌ 朋友圈窗口区域无效")
+                return False
+
+            # 截取朋友圈窗口区域
+            screenshot = pyautogui.screenshot(region=(left, top, width, height))
+
+            # OCR识别所有文字
+            result = ocr_engine_ref.recognize_text(screenshot)
+
+            if not result or len(result) == 0:
+                print("⚠️ OCR识别结果为空")
+                return False
+
+            print(f"📋 本次识别到 {len(result)} 行文字")
+
+            # 提取用户名候选
+            username_candidates = _extract_first_line_username_candidates(result, pengyouquan_region)
+
+            # 收集点赞按钮位置
+            dianzan_positions = _collect_dianzan_positions_in_region(
+                pengyouquan_region,
+                screenshot=screenshot,
+                ocr_engine_ref=ocr_engine_ref,
+                username_candidates=username_candidates
+            )
+
+            # 映射用户名到点赞按钮
+            mapped_posts = _map_username_to_first_dianzan(username_candidates, dianzan_positions)
+
+            if not mapped_posts:
+                print("⚠️ 未找到可点赞的帖子")
+                return False
+
+            print(f"🔗 找到 {len(mapped_posts)} 个可点赞的帖子")
+
+            # 对第一个可见帖子执行点赞
+            user_name, post_id, name_pos, dianzan_pos = mapped_posts[0]
+            print(f"👍 正在点赞: {user_name}, 点赞按钮位置: {dianzan_pos}")
+
+            if check_and_perform_dianzan(dianzan_pos, stop_flag_func=None):
+                print(f"✅ 成功点赞: {user_name}")
+
+                # 滚动到下一个帖子
+                print("⬇️ 滚动到下一个帖子...")
+                pyautogui.press('down')
+                time.sleep(1)
+
+                return True
+            else:
+                print(f"❌ 点赞失败: {user_name}")
+                return False
+
+        except Exception as e:
+            print(f"❌ 自动识别辅助点赞出错: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    else:
+        print("⚠️ RapidOCR不可用，无法执行自动识别")
+        return False
 
 
 # ==================== 主程序 ====================

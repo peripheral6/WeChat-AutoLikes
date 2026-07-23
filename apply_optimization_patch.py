@@ -1,38 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-WeChat Auto-Likes 优化补丁脚本
-安全修改 wechat_core_engine.py 和 wechat_automation_gui.py
+WeChat Auto-Likes 优化补丁
+安全地修改 wechat_core_engine.py 和 wechat_automation_gui.py
 """
 
 import os
-import sys
+import re
 
 def read_file(path):
-    """读取文件内容"""
     with open(path, 'r', encoding='utf-8') as f:
         return f.read()
 
 def write_file(path, content):
-    """写入文件内容"""
     with open(path, 'w', encoding='utf-8') as f:
         f.write(content)
 
-def check_syntax(path):
-    """检查Python语法"""
-    import py_compile
-    try:
-        py_compile.compile(path, doraise=True)
-        return True
-    except py_compile.PyCompileError as e:
-        print(f"语法错误: {e}")
-        return False
+def main():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    core_path = os.path.join(base_dir, 'wechat_core_engine.py')
+    gui_path = os.path.join(base_dir, 'wechat_automation_gui.py')
 
-def apply_popup_verification_fix(core_engine_path):
-    """修复 check_and_perform_dianzan 的弹窗验证"""
-    content = read_file(core_engine_path)
+    # ===== 1. 修改 wechat_core_engine.py =====
+    print("[1/4] 修改 wechat_core_engine.py...")
+    content = read_file(core_path)
 
-    old_code = '''        # 点击点赞按钮弹出界面
+    # 1a. 替换弹窗验证（方差检查 -> 截图哈希对比）
+    old_popup = '''        # 点击点赞按钮弹出界面
         print(f"🎯 准备点击目标点赞点: ({dianzan_position[0]},{dianzan_position[1]})")
         pyautogui.click(dianzan_position[0], dianzan_position[1])
         print("✅ 已点击点赞按钮，等待界面弹出...")
@@ -58,7 +52,7 @@ def apply_popup_verification_fix(core_engine_path):
         except Exception as ve:
             print(f"⚠️ 弹窗验证过程异常: {ve}")'''
 
-    new_code = '''        # ===== 前后截图对比验证弹窗是否出现 =====
+    new_popup = '''        # ===== 前后截图对比验证弹窗是否出现 =====
         click_x, click_y = dianzan_position
         verify_region = (max(0, click_x - 100), max(0, click_y - 50), 250, 120)
 
@@ -84,30 +78,27 @@ def apply_popup_verification_fix(core_engine_path):
         except Exception as ve:
             print(f"⚠️ 弹窗截图验证异常: {ve}")'''
 
-    if old_code in content:
-        content = content.replace(old_code, new_code)
-        write_file(core_engine_path, content)
-        print("[OK] Fixed popup verification in check_and_perform_dianzan")
-        return True
+    if old_popup in content:
+        content = content.replace(old_popup, new_popup)
+        print("  [OK] 替换了弹窗验证逻辑")
     else:
-        print("[WARN] Could not find popup verification code to replace")
-        return False
+        print("  [WARN] 未找到弹窗验证代码（可能已修改过）")
 
-def add_ocr_fallback(core_engine_path):
-    """添加OCR后备点赞方案"""
-    content = read_file(core_engine_path)
-
-    old_code = '''        except:
+    # 1b. 在 check_and_perform_dianzan 末尾添加 OCR 后备方案
+    old_end = '''        except:
             pass
+
 
         print("⚠️ 无法执行点赞操作")
         return False
 
     except Exception as e:
         print(f"❌ 检测点赞状态失败: {e}")
-        return False'''
+        return False
 
-    new_code = '''        except:
+def perform_comment_action'''
+
+    new_end = '''        except:
             pass
 
         # OCR后备：检测弹窗中的"赞"文字
@@ -140,28 +131,24 @@ def add_ocr_fallback(core_engine_path):
 
     except Exception as e:
         print(f"❌ 检测点赞状态失败: {e}")
-        return False'''
-
-    if old_code in content:
-        content = content.replace(old_code, new_code)
-        write_file(core_engine_path, content)
-        print("[OK] Added OCR fallback to check_and_perform_dianzan")
-        return True
-    else:
-        print("[WARN] Could not find insertion point for OCR fallback")
         return False
 
-def add_auto_detect_like_function(core_engine_path):
-    """添加自动识别辅助点赞函数"""
-    content = read_file(core_engine_path)
+def perform_comment_action'''
 
+    if old_end in content:
+        content = content.replace(old_end, new_end)
+        print("  [OK] 添加了OCR后备点赞方案")
+    else:
+        print("  [WARN] 未找到插入点（OCR后备可能已存在）")
+
+    # 1c. 添加自动识别辅助点赞函数
     auto_detect_func = '''
 
 # ==================== 自动识别辅助点赞功能 ====================
 
 def auto_detect_and_like_current_post(ocr_engine_ref=None):
     """
-    自动识别当前朋友圈可见帖子的点赞按钮并点赞
+    自动识别当前朋友圈可见帖子并点赞，然后切换到下一个
 
     流程：
     1. 截取朋友圈窗口区域
@@ -252,18 +239,19 @@ def auto_detect_and_like_current_post(ocr_engine_ref=None):
     insert_marker = '# ==================== 主程序 ===================='
     if insert_marker in content and auto_detect_func not in content:
         content = content.replace(insert_marker, auto_detect_func + '\n' + insert_marker)
-        write_file(core_engine_path, content)
-        print("[OK] Added auto_detect_and_like_current_post function")
-        return True
+        print("  [OK] 添加了auto_detect_and_like_current_post函数")
     else:
-        print("[WARN] Could not insert auto-detect function")
-        return False
+        print("  [WARN] 未找到插入位置或函数已存在")
 
-def modify_aux_like_gui(gui_path):
-    """修改GUI中的辅助点赞功能为自动识别模式"""
-    content = read_file(gui_path)
+    write_file(core_path, content)
+    print("  [OK] wechat_core_engine.py 修改完成")
 
-    old_code = '''    def execute_aux_like_once(self, from_hotkey=False):
+    # ===== 2. 修改 wechat_automation_gui.py =====
+    print("\\n[2/4] 修改 wechat_automation_gui.py...")
+    gui_content = read_file(gui_path)
+
+    # 2a. 替换 execute_aux_like_once 为自动识别模式
+    old_aux = '''    def execute_aux_like_once(self, from_hotkey=False):
         """执行一次辅助点赞动作：当前点 + 偏移点 + 可选向下滚动"""
         if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
             return
@@ -323,7 +311,7 @@ def modify_aux_like_gui(gui_path):
             pyautogui.MINIMUM_DURATION = original_min_duration
             pyautogui.MINIMUM_SLEEP = original_min_sleep'''
 
-    new_code = '''    def execute_aux_like_once(self, from_hotkey=False):
+    new_aux = '''    def execute_aux_like_once(self, from_hotkey=False):
         """执行一次辅助点赞动作：自动识别当前帖子 + 一键点赞 + 切换下一个"""
         if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
             return
@@ -371,92 +359,56 @@ def modify_aux_like_gui(gui_path):
             pyautogui.MINIMUM_DURATION = original_min_duration
             pyautogui.MINIMUM_SLEEP = original_min_sleep'''
 
-    if old_code in content:
-        content = content.replace(old_code, new_code)
-        write_file(gui_path, content)
-        print("[OK] Modified execute_aux_like_once to auto-detect mode")
-        return True
+    if old_aux in gui_content:
+        gui_content = gui_content.replace(old_aux, new_aux)
+        print("  [OK] 替换了execute_aux_like_once为自动识别模式")
     else:
-        print("[WARN] Could not find execute_aux_like_once to replace")
-        return False
+        print("  [WARN] 未找到execute_aux_like_once原代码")
 
-def update_aux_like_hint(gui_path):
-    """更新辅助点赞提示文本"""
-    content = read_file(gui_path)
-
+    # 2b. 更新辅助点赞提示文本
     old_hint = '启用F10辅助点赞（每按一次F10仅执行一次）'
     new_hint = '启用F10自动辅助点赞（自动识别当前帖子，一键点赞并切换下一个）'
 
-    if old_hint in content:
-        content = content.replace(old_hint, new_hint)
-        write_file(gui_path, content)
-        print("[OK] Updated auxiliary like hint text")
-        return True
-    else:
-        print("[WARN] Could not find hint text to update")
-        return False
+    if old_hint in gui_content:
+        gui_content = gui_content.replace(old_hint, new_hint)
+        print("  [OK] 更新了辅助点赞提示文本")
 
-def main():
-    print("=" * 60)
-    print("WeChat Auto-Likes 优化补丁")
-    print("=" * 60)
+    write_file(gui_path, gui_content)
+    print("  [OK] wechat_automation_gui.py 修改完成")
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    core_engine_path = os.path.join(base_dir, 'wechat_core_engine.py')
-    gui_path = os.path.join(base_dir, 'wechat_automation_gui.py')
-
-    # 1. 修复弹窗验证
-    print("\\n[1/5] 修复弹窗验证...")
-    if os.path.exists(core_engine_path):
-        apply_popup_verification_fix(core_engine_path)
-    else:
-        print(f"[ERROR] File not found: {core_engine_path}")
-
-    # 2. 添加OCR后备
-    print("\\n[2/5] 添加OCR后备点赞方案...")
-    if os.path.exists(core_engine_path):
-        add_ocr_fallback(core_engine_path)
-    else:
-        print(f"[ERROR] File not found: {core_engine_path}")
-
-    # 3. 添加自动识别函数
-    print("\\n[3/5] 添加自动识别辅助点赞函数...")
-    if os.path.exists(core_engine_path):
-        add_auto_detect_like_function(core_engine_path)
-    else:
-        print(f"[ERROR] File not found: {core_engine_path}")
-
-    # 4. 修改GUI
-    print("\\n[4/5] 修改GUI辅助点赞功能...")
-    if os.path.exists(gui_path):
-        modify_aux_like_gui(gui_path)
-        update_aux_like_hint(gui_path)
-    else:
-        print(f"[ERROR] File not found: {gui_path}")
-
-    # 5. 验证语法
-    print("\\n[5/5] 验证语法...")
+    # ===== 3. 验证语法 =====
+    print("\\n[3/4] 验证语法...")
+    import py_compile
     all_ok = True
-    if os.path.exists(core_engine_path):
-        if check_syntax(core_engine_path):
-            print(f"[OK] Core engine syntax OK")
-        else:
-            print(f"[ERROR] Core engine syntax error!")
-            all_ok = False
 
-    if os.path.exists(gui_path):
-        if check_syntax(gui_path):
-            print(f"[OK] GUI syntax OK")
-        else:
-            print(f"[ERROR] GUI syntax error!")
-            all_ok = False
+    try:
+        py_compile.compile(core_path, doraise=True)
+        print("  [OK] wechat_core_engine.py 语法正确")
+    except py_compile.PyCompileError as e:
+        print(f"  [ERROR] wechat_core_engine.py 语法错误: {e}")
+        all_ok = False
 
-    print("\\n" + "=" * 60)
+    try:
+        py_compile.compile(gui_path, doraise=True)
+        print("  [OK] wechat_automation_gui.py 语法正确")
+    except py_compile.PyCompileError as e:
+        print(f"  [ERROR] wechat_automation_gui.py 语法错误: {e}")
+        all_ok = False
+
+    # ===== 4. 完成 =====
+    print("\\n[4/4] 完成!")
+    print("=" * 60)
     if all_ok:
         print("补丁应用完成！")
-        print("请运行 python wechat_automation_gui.py 启动应用")
+        print("请运行: python wechat_automation_gui.py 启动应用")
+        print("")
+        print("主要改进:")
+        print("  1. 弹窗验证改用截图哈希对比，更可靠")
+        print("  2. 新增OCR后备方案，模板匹配失败时仍可点赞")
+        print("  3. F10辅助点赞改为自动识别+一键点赞+切换下一个")
+        print("     不再需要手动移动鼠标到点赞按钮")
     else:
-        print("应用过程中出现错误，请检查上述输出")
+        print("应用过程中出现错误！")
         print("如需恢复，请运行: git checkout -- wechat_core_engine.py wechat_automation_gui.py")
     print("=" * 60)
 
