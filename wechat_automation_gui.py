@@ -350,6 +350,8 @@ class WeChatAutomationGUI(QMainWindow):
         self._aux_like_last_trigger_time = 0.0
         self._aux_like_lock = threading.Lock()
         self.init_ui()
+        # 初始化OCR引擎（延迟加载，但需要在GUI启动时触发）
+        _init_gui_ocr_engines()
         # 连接status_updated信号到update_status_impl方法（在主线程执行）
         self.status_updated.connect(self.update_status_impl)
         self.aux_like_triggered.connect(self.execute_aux_like_once)
@@ -2698,25 +2700,61 @@ class WeChatAutomationGUI(QMainWindow):
             )
 
             # 调用核心引擎的自动识别点赞功能
-            success = auto_detect_and_like_current_post(ocr_engine_ref=ocr_engine)
+            success, message = auto_detect_and_like_current_post(ocr_engine_ref=ocr_engine)
 
             if success:
                 self.update_status(
-                    f"✅ 自动辅助点赞成功！已点赞并切换到下一个帖子",
+                    f"✅ {message}",
                     "#2ecc71"
                 )
             else:
+                # 自动识别失败，尝试回退到简单点击模式（用户需将鼠标移至目标位置附近）
+                print(f"⚠️ 自动识别失败: {message}, 尝试回退方案...")
                 self.update_status(
-                    f"⚠️ 自动辅助点赞失败，请确保朋友圈窗口可见",
-                    "#f39c12"
+                    f"⚠️ {message}，正在尝试简单点击回退...",
+                    "#ff8c00"
                 )
-
+                # 简短延迟让用户有机会看到提示
+                time.sleep(0.5)
+                self.simple_fallback_click(original_pause, original_min_duration, original_min_sleep, trigger_source)
         except Exception as e:
             self.update_status(f"❌ 辅助点赞执行失败: {e}", "#f44336")
         finally:
             pyautogui.PAUSE = original_pause
             pyautogui.MINIMUM_DURATION = original_min_duration
             pyautogui.MINIMUM_SLEEP = original_min_sleep
+
+    def simple_fallback_click(self, original_pause, original_min_duration, original_min_sleep, trigger_source):
+        """简单的回退点击：在当前鼠标位置附近执行双键操作"""
+        try:
+            if hasattr(self, 'aux_like_offset_x_spinbox') and hasattr(self, 'aux_like_offset_y_spinbox'):
+                offset_x = self.aux_like_offset_x_spinbox.value()
+                offset_y = self.aux_like_offset_y_spinbox.value()
+
+                current_pos = pyautogui.position()
+                target_x = current_pos.x + offset_x
+                target_y = current_pos.y + offset_y
+
+                self.update_status(
+                    f"🖱️ 简单模式({trigger_source}): 点({current_pos.x},{current_pos.y}) + 双击({target_x},{target_y})",
+                    "#FF69B4"
+                )
+
+                pyautogui.click(current_pos.x, current_pos.y)
+                time.sleep(0.1)
+                pyautogui.doubleClick(target_x, target_y)
+                time.sleep(0.5)
+                self.update_status(
+                    f"✅ 简单模式点击完成",
+                    "#2ecc71"
+                )
+            else:
+                self.update_status(
+                    "⚠️ 无法使用简单模式：缺少偏移量设置",
+                    "#f39c12"
+                )
+        except Exception as e:
+            self.update_status(f"❌ 简单模式失败: {e}", "#f44336")
 
     def closeEvent(self, event):
         """窗口关闭时清理全局热键"""

@@ -1,0 +1,38 @@
+def _map_username_to_first_dianzan(username_candidates, dianzan_positions):
+    """将每个用户名映射到其右下方第一个点赞按钮"""
+    if not username_candidates or not dianzan_positions:
+        return []
+
+    mappings = []
+    used_like_positions = set()
+
+    for user in username_candidates:
+        name_x = user["abs_x"]
+        name_y = user["abs_y"]
+
+        best_like = None
+        best_score = None
+
+        for icon_x, icon_y in dianzan_positions:
+            # 头像右侧第一行 -> 点赞按钮应在其右下方，且优先"第一个出现"的点赞按钮
+            if icon_y <= name_y + 12:
+                continue
+            if icon_y - name_y > 420:
+                continue
+            if icon_x <= name_x + 30:
+                continue
+
+            # 先按垂直距离，再按水平距离，匹配"第一个出现"的点赞位置
+            score = (icon_y - name_y, abs(icon_x - name_x))
+            if best_score is None or score < best_score:
+                best_score = score
+                best_like = (icon_x, icon_y)
+
+        if best_like and best_like not in used_like_positions:
+            used_like_positions.add(best_like)
+            post_id = (round(best_like[1] / 10) * 10, round(best_like[0] / 10) * 10)
+            mappings.append((user["text"], post_id, (name_x, name_y), best_like))
+
+    print(f"🔗 用户与第一个点赞按钮映射数量: {len(mappings)}")
+    return mappings
+

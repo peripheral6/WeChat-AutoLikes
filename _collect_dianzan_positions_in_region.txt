@@ -1,0 +1,67 @@
+def _collect_dianzan_positions_in_region(pengyouquan_region, screenshot=None, ocr_engine_ref=None, username_candidates=None):
+    """在当前朋友圈窗口区域内收集点赞按钮位置（按从上到下排序）"""
+    if not pengyouquan_region:
+        return []
+
+    dianzan_icon_path = get_resource_path('assets/dianzan.png')
+    if not os.path.exists(dianzan_icon_path):
+        print("❌ 未找到点赞图标资源文件: assets/dianzan.png")
+        return []
+
+    left, top, right, bottom = pengyouquan_region
+    width, height = right - left, bottom - top
+    if width <= 0 or height <= 0:
+        return []
+
+    all_positions = []
+    confidence_levels = [0.85, 0.80, 0.75, 0.70]
+
+    for confidence in confidence_levels:
+        try:
+            matches = list(pyautogui.locateAllOnScreen(
+                dianzan_icon_path,
+                confidence=confidence,
+                region=(left, top, width, height)
+            ))
+            for m in matches:
+                center_x = m.left + m.width // 2
+                center_y = m.top + m.height // 2
+                all_positions.append((center_x, center_y))
+        except Exception as e:
+            print(f"⚠️ 点赞图标识别失败(置信度 {confidence}): {e}")
+
+    # 去重：同一区域识别到多个重叠点时合并
+    unique_positions = []
+    for x, y in sorted(all_positions, key=lambda p: (p[1], p[0])):
+        duplicate = False
+        for ux, uy in unique_positions:
+            if abs(x - ux) <= 15 and abs(y - uy) <= 15:
+                duplicate = True
+                break
+        if not duplicate:
+            unique_positions.append((x, y))
+
+    print(f"🔎 当前窗口识别到点赞按钮数量: {len(unique_positions)}")
+
+    # 结构验证：如果有用户名候选，过滤掉不符合布局的位置
+    if unique_positions and username_candidates:
+        validated = []
+        for x, y in unique_positions:
+            for user in username_candidates:
+                if verify_like_button_position(x, y, user["abs_x"], user["abs_y"]):
+                    validated.append((x, y))
+                    break
+        if validated:
+            unique_positions = validated
+            print(f"🔎 结构验证后点赞按钮数量: {len(unique_positions)}")
+
+    # 如果没有找到任何点赞按钮，尝试OCR后备方案
+    if not unique_positions and screenshot and ocr_engine_ref:
+        print("⚠️ 模板匹配未找到点赞按钮，尝试OCR识别'赞'文字...")
+        ocr_positions = find_like_button_via_action_bar(screenshot, pengyouquan_region, ocr_engine_ref)
+        if ocr_positions:
+            unique_positions = ocr_positions
+            print(f"🔎 OCR后备方案找到 {len(unique_positions)} 个点赞按钮位置")
+
+    return unique_positions
+

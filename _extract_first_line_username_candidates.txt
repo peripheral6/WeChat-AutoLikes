@@ -1,0 +1,78 @@
+def _extract_first_line_username_candidates(ocr_result, pengyouquan_region):
+    """提取"头像右边第一行"风格的用户名候选"""
+    if not ocr_result or not pengyouquan_region:
+        return []
+
+    left, top, right, bottom = pengyouquan_region
+    width = right - left
+    if width <= 0:
+        return []
+
+    filtered = []
+    noise_keywords = [
+        "分钟前", "小时前", "刚刚", "今天", "昨天", "删除", "评论", "点赞", "赞", "全文", "收起"
+    ]
+
+    for line in ocr_result:
+        if len(line) < 2:
+            continue
+
+        bbox = line[0] if len(line) >= 1 else None
+        text = str(line[1]).strip()
+        if not bbox or not text:
+            continue
+
+        # 基础过滤
+        if len(text) > 20 or text.isdigit():
+            continue
+        if any(k in text for k in noise_keywords):
+            continue
+
+        has_chinese = any('\u4e00' <= c <= '\u9fff' for c in text)
+        has_english = any(c.isalpha() for c in text)
+        if not (has_chinese or has_english):
+            continue
+
+        xs = [pt[0] for pt in bbox]
+        ys = [pt[1] for pt in bbox]
+        rel_x = int(min(xs))
+        rel_y = int(min(ys))
+        center_rel_x = int(sum(xs) / len(xs))
+        center_rel_y = int(sum(ys) / len(ys))
+
+        # 头像在最左侧，用户名通常位于其右边靠左区域
+        x_ratio = rel_x / max(width, 1)
+        if x_ratio < 0.08 or x_ratio > 0.55:
+            continue
+
+        filtered.append({
+            "text": text,
+            "rel_x": rel_x,
+            "rel_y": rel_y,
+            "abs_x": left + center_rel_x,
+            "abs_y": top + center_rel_y,
+        })
+
+    if not filtered:
+        return []
+
+    # "第一行"规则：按行聚合，保留每行最靠左的名字候选
+    row_groups = {}
+    row_height = 28
+    for item in filtered:
+        row_key = item["rel_y"] // row_height
+        row_groups.setdefault(row_key, []).append(item)
+
+    first_line_candidates = []
+    for _, row_items in row_groups.items():
+        row_items.sort(key=lambda it: it["rel_x"])
+        leftmost_x = row_items[0]["rel_x"]
+        # 允许同一行轻微偏移，保留最可能是用户名的左侧文本
+        keep = [it for it in row_items if it["rel_x"] <= leftmost_x + 20]
+        if keep:
+            first_line_candidates.append(keep[0])
+
+    first_line_candidates.sort(key=lambda it: it["abs_y"])
+    print(f"🔎 头像右侧第一行用户名候选数量: {len(first_line_candidates)}")
+    return first_line_candidates
+

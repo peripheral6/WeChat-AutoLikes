@@ -3939,7 +3939,7 @@ def auto_detect_and_like_current_post(ocr_engine_ref=None):
     5. 滚动到下一个帖子
 
     Returns:
-        bool: 是否成功点赞至少一个帖子
+        tuple: (bool, str) - (是否成功，详细状态消息)
     """
     print("\n🔍 开始自动识别当前可见帖子...")
 
@@ -3950,14 +3950,14 @@ def auto_detect_and_like_current_post(ocr_engine_ref=None):
 
             if not pengyouquan_region:
                 print("❌ 无法获取朋友圈窗口区域")
-                return False
+                return False, "无法找到朋友圈窗口 - 请确保朋友圈已打开且可见"
 
             left, top, right, bottom = pengyouquan_region
             width, height = right - left, bottom - top
 
             if width <= 0 or height <= 0 or left < 0 or top < 0:
                 print("❌ 朋友圈窗口区域无效")
-                return False
+                return False, "朋友圈窗口区域无效"
 
             # 截取朋友圈窗口区域
             screenshot = pyautogui.screenshot(region=(left, top, width, height))
@@ -3967,7 +3967,7 @@ def auto_detect_and_like_current_post(ocr_engine_ref=None):
 
             if not result or len(result) == 0:
                 print("⚠️ OCR识别结果为空")
-                return False
+                return False, "OCR识别未能找到文字 - 请确保朋友圈清晰可见"
 
             print(f"📋 本次识别到 {len(result)} 行文字")
 
@@ -3987,7 +3987,7 @@ def auto_detect_and_like_current_post(ocr_engine_ref=None):
 
             if not mapped_posts:
                 print("⚠️ 未找到可点赞的帖子")
-                return False
+                return False, "未能识别到用户名和点赞按钮的配对 - 可能需要调整界面布局"
 
             print(f"🔗 找到 {len(mapped_posts)} 个可点赞的帖子")
 
@@ -4003,19 +4003,19 @@ def auto_detect_and_like_current_post(ocr_engine_ref=None):
                 pyautogui.press('down')
                 time.sleep(1)
 
-                return True
+                return True, f"✅ 成功点赞: {user_name}，已切换到下一条"
             else:
                 print(f"❌ 点赞失败: {user_name}")
-                return False
+                return False, f"点赞操作失败: {user_name}"
 
         except Exception as e:
             print(f"❌ 自动识别辅助点赞出错: {e}")
             import traceback
             traceback.print_exc()
-            return False
+            return False, f"操作异常错误: {str(e)}"
     else:
         print("⚠️ RapidOCR不可用，无法执行自动识别")
-        return False
+        return False, "RapidOCR引擎不可用 - 请确保OCR模块已正确安装"
 
 
 # ==================== 主程序 ====================
