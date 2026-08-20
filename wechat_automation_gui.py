@@ -2733,9 +2733,10 @@ class WeChatAutomationGUI(QMainWindow):
                 # 跳过模式：不做点赞，直接进入下滚+识别下一个
                 time.sleep(STEP_DELAY)
 
-            # 6+7. 自适应滚动+识别定位下一个点赞按钮（循环滚动，使下一条居中）
-            PX_PER_NOTCH = 400  # 每个滚轮notch对应约400px的滚动参考量
-            MAX_ATTEMPTS = 5    # 最多滚动尝试次数
+            # 6+7. 自适应滚动+识别定位下一个点赞按钮（大滚动量、快速、循环居中）
+            PX_PER_NOTCH = 60      # 偏差像素 → 滚动格数 的换算系数（一格约滚60px内容）
+            SCROLL_PAUSE = 0.04    # 每次滚动后的短暂停顿（40ms），保证滚动生效且快速
+            MAX_ATTEMPTS = 2       # 居中循环最多2次（减少慢速循环）
 
             screen_h = pyautogui.size().height
             center_y = int(screen_h / 2)
@@ -2750,29 +2751,28 @@ class WeChatAutomationGUI(QMainWindow):
                 # 鼠标下方没找到，先基础下滚，让下一条滚进下半个屏幕
                 if offset_y > 0:
                     pyautogui.scroll(-int(offset_y))
-                    time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
+                    time.sleep(SCROLL_PAUSE)
                 # 鼠标跟随下移到屏幕中线，作为新的搜索基准
                 pyautogui.moveTo(current_x, center_y, duration=0)
-                time.sleep(STEP_DELAY)
-                current_y = center_y
+                time.sleep(SCROLL_PAUSE)
                 # 从中线以下固定区域识别
-                mid_positions = self._find_next_dianzan(current_x, current_y, below_mid=True)
+                mid_positions = self._find_next_dianzan(current_x, center_y, below_mid=True)
                 if mid_positions:
                     located_pos = mid_positions[0]
 
-            # 若已定位，做居中微调：按钮在中下部则下滚使其居中
+            # 若已定位，做居中微调：按钮在中下部则下滚使其居中（快速、大量滚动）
             if located_pos:
                 for _ in range(MAX_ATTEMPTS):
                     nx, ny = located_pos
                     if ny <= center_y + 200:
                         break  # 已在中上部，到位
-                    # 按钮还在屏幕中下部，向下滚动使其上移
-                    roll = max(1, int((ny - center_y) / PX_PER_NOTCH))
+                    # 按钮还在屏幕中下部，一次性大量下滚使其上移（按偏差换算格数，保证足够）
+                    roll = max(5, int((ny - center_y) / PX_PER_NOTCH) + 1)
                     pyautogui.scroll(-roll)
-                    time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
+                    time.sleep(SCROLL_PAUSE)
                     # 滚动后鼠标跟随下移到中线，重新从中线以下识别
                     pyautogui.moveTo(current_x, center_y, duration=0)
-                    time.sleep(STEP_DELAY)
+                    time.sleep(SCROLL_PAUSE)
                     re_positions = self._find_next_dianzan(current_x, center_y, below_mid=True)
                     if re_positions:
                         located_pos = re_positions[0]
@@ -2791,10 +2791,10 @@ class WeChatAutomationGUI(QMainWindow):
                 pyautogui.moveTo(fx, fy, duration=0)
                 time.sleep(STEP_DELAY)
             else:
-                # 循环多次仍未找到，做一次基础下滚后停止，不再无限下滚
+                # 循环仍未找到，做一次基础下滚后停止，不再无限下滚
                 if offset_y != 0:
                     pyautogui.scroll(-int(offset_y))
-                    time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
+                    time.sleep(SCROLL_PAUSE)
                 self.update_status(
                     f"ℹ️ 未检测到下一个点赞按钮，已按基础下滚{offset_y}行",
                     "#f39c12"
