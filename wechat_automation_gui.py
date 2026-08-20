@@ -1328,7 +1328,7 @@ class WeChatAutomationGUI(QMainWindow):
 
         helper_layout.addLayout(helper_config_layout)
 
-        helper_hint = QLabel("说明：F10 触发后仅执行一次，点击当前鼠标位置，自动识别下一个点赞按钮并移动鼠标（可向左偏移），然后点击并下滚")
+        helper_hint = QLabel("说明：F10 触发后：点击当前位置 → 左移 → 间隔后点击 → 移回 → 下滚 → 自动定位下一个点赞按钮")
         helper_hint.setFont(QFont("Microsoft YaHei", 9))
         helper_hint.setStyleSheet("color: #666666;")
         helper_layout.addWidget(helper_hint)
@@ -2634,7 +2634,7 @@ class WeChatAutomationGUI(QMainWindow):
                 self.update_status(f"⚠️ 关闭F10热键时出现问题: {e}", "#FF69B4")
 
     def execute_aux_like_once(self, from_hotkey=False):
-        """执行一次辅助点赞动作：点击当前位置，自动识别下一个点赞按钮并移动鼠标"""
+        """执行一次辅助点赞动作：点击 -> 左移 -> 点击 -> 移回 -> 下滚 -> 定位下一个"""
         if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
             return
 
@@ -2660,45 +2660,51 @@ class WeChatAutomationGUI(QMainWindow):
             current_pos = pyautogui.position()
             current_x, current_y = current_pos.x, current_pos.y
 
+            # 左移后的点赞目标位置
+            like_x = current_x + offset_x
+            like_y = current_y
+
             trigger_source = "F10" if from_hotkey else "测试按钮"
             self.update_status(
-                f"🖱️ 辅助点赞({trigger_source})：点击({current_x},{current_y})",
+                f"🖱️ 辅助点赞({trigger_source})：点击({current_x},{current_y}) 开始",
                 "#FF69B4"
             )
 
-            # 点击当前鼠标位置
+            # 1. 点击当前鼠标位置
             pyautogui.click(current_x, current_y)
+
+            # 2. 移到左边（点赞按钮位置）
+            pyautogui.moveTo(like_x, like_y, duration=0)
+
+            # 3. 等待间隔时间
             if delay_ms > 0:
                 time.sleep(delay_ms / 1000.0)
 
-            # 自动识别下一个点赞按钮（在当前位置下方）
-            next_position = self._find_next_dianzan(current_x, current_y)
+            # 4. 点击（点赞）
+            pyautogui.click(like_x, like_y)
 
+            # 5. 移回来
+            pyautogui.moveTo(current_x, current_y, duration=0)
+
+            # 6. 向下滚动行数（offset_y为正时向下滚动）
+            if offset_y != 0:
+                pyautogui.scroll(-int(offset_y))
+                time.sleep(delay_ms / 1000.0 if delay_ms > 0 else 0.1)
+
+            # 7. 自动识别下一个点赞按钮，移动鼠标过去（为下次F10做准备）
+            next_position = self._find_next_dianzan(current_x, current_y)
             if next_position:
                 next_x, next_y = next_position
-                # 应用向左偏移
-                final_x = next_x + offset_x
                 self.update_status(
-                    f"🎯 找到下一个点赞按钮：({next_x},{next_y})，向左偏移{offset_x}px",
+                    f"🎯 已定位下一个点赞按钮：({next_x},{next_y})",
                     "#2ecc71"
                 )
-                # 移动鼠标到下一个点赞按钮位置（带偏移）
-                pyautogui.moveTo(final_x, next_y, duration=0)
-                # 等待间隔后再点击（点赞）
-                if delay_ms > 0:
-                    time.sleep(delay_ms / 1000.0)
-                pyautogui.click(final_x, next_y)
+                pyautogui.moveTo(next_x, next_y, duration=0)
             else:
-                # 未找到下一个按钮，移回原始位置
                 self.update_status(
-                    f"⚠️ 未找到下一个点赞按钮，移回原位",
+                    f"ℹ️ 未检测到下一个点赞按钮，鼠标留在当前滚动位置",
                     "#f39c12"
                 )
-                pyautogui.moveTo(current_x, current_y, duration=0)
-
-            # 根据垂直偏移滚动（负值向上，正值向下）
-            if offset_y != 0:
-                pyautogui.scroll(int(offset_y))
 
         except Exception as e:
             self.update_status(f"❌ 辅助点赞执行失败: {e}", "#f44336")
