@@ -16,6 +16,7 @@
     "like_video": true,
     "enable_window_resize": true,
     "aux_like_hotkey_enabled": true,
+    "aux_like_offset_x": -240,
     "aux_like_offset_y": 30,
     "aux_like_delay_ms": 500
   }
