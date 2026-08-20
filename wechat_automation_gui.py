@@ -1323,6 +1323,22 @@ class WeChatAutomationGUI(QMainWindow):
         self.aux_like_offset_y_spinbox.setSuffix(" 格")
         self.aux_like_offset_y_spinbox.setFont(QFont("Microsoft YaHei", 10))
 
+        scroll_up_label = QLabel("上半屏滚:")
+        scroll_up_label.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_scroll_up_spinbox = QSpinBox()
+        self.aux_like_scroll_up_spinbox.setRange(0, 5000)
+        self.aux_like_scroll_up_spinbox.setValue(600)
+        self.aux_like_scroll_up_spinbox.setSuffix(" 格")
+        self.aux_like_scroll_up_spinbox.setFont(QFont("Microsoft YaHei", 10))
+
+        scroll_down_label = QLabel("下半屏滚:")
+        scroll_down_label.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_scroll_down_spinbox = QSpinBox()
+        self.aux_like_scroll_down_spinbox.setRange(0, 5000)
+        self.aux_like_scroll_down_spinbox.setValue(400)
+        self.aux_like_scroll_down_spinbox.setSuffix(" 格")
+        self.aux_like_scroll_down_spinbox.setFont(QFont("Microsoft YaHei", 10))
+
         delay_label = QLabel("点击间隔:")
         delay_label.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_delay_spinbox = QSpinBox()
@@ -1340,6 +1356,10 @@ class WeChatAutomationGUI(QMainWindow):
         helper_config_layout.addWidget(self.aux_like_offset_x_spinbox)
         helper_config_layout.addWidget(offset_y_label)
         helper_config_layout.addWidget(self.aux_like_offset_y_spinbox)
+        helper_config_layout.addWidget(scroll_up_label)
+        helper_config_layout.addWidget(self.aux_like_scroll_up_spinbox)
+        helper_config_layout.addWidget(scroll_down_label)
+        helper_config_layout.addWidget(self.aux_like_scroll_down_spinbox)
         helper_config_layout.addWidget(delay_label)
         helper_config_layout.addWidget(self.aux_like_delay_spinbox)
         helper_config_layout.addWidget(self.aux_like_test_btn)
@@ -1347,7 +1367,7 @@ class WeChatAutomationGUI(QMainWindow):
 
         helper_layout.addLayout(helper_config_layout)
 
-        helper_hint = QLabel("说明：右键/F10 点赞当前条（点击→左移→点击→移回）；下键跳过。之后自动识别下一条并自适应滚动使其居中并定位")
+        helper_hint = QLabel("说明：右键/F10 点赞当前条（点击→左移→点击→移回）；下键跳过。之后根据鼠标位置（上/下半屏）按设定格数下滚并定位下一个")
         helper_hint.setFont(QFont("Microsoft YaHei", 9))
         helper_hint.setStyleSheet("color: #666666;")
         helper_layout.addWidget(helper_hint)
@@ -2212,6 +2232,12 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'aux_like_offset_y_spinbox'):
                 self.aux_like_offset_y_spinbox.valueChanged.connect(self.save_last_inputs)
 
+            if hasattr(self, 'aux_like_scroll_up_spinbox'):
+                self.aux_like_scroll_up_spinbox.valueChanged.connect(self.save_last_inputs)
+
+            if hasattr(self, 'aux_like_scroll_down_spinbox'):
+                self.aux_like_scroll_down_spinbox.valueChanged.connect(self.save_last_inputs)
+
             if hasattr(self, 'aux_like_delay_spinbox'):
                 self.aux_like_delay_spinbox.valueChanged.connect(self.save_last_inputs)
 
@@ -2320,6 +2346,12 @@ class WeChatAutomationGUI(QMainWindow):
 
             if hasattr(self, 'aux_like_offset_y_spinbox'):
                 config['last_inputs']['aux_like_offset_y'] = self.aux_like_offset_y_spinbox.value()
+
+            if hasattr(self, 'aux_like_scroll_up_spinbox'):
+                config['last_inputs']['aux_like_scroll_up'] = self.aux_like_scroll_up_spinbox.value()
+
+            if hasattr(self, 'aux_like_scroll_down_spinbox'):
+                config['last_inputs']['aux_like_scroll_down'] = self.aux_like_scroll_down_spinbox.value()
 
             if hasattr(self, 'aux_like_delay_spinbox'):
                 config['last_inputs']['aux_like_delay_ms'] = self.aux_like_delay_spinbox.value()
@@ -2507,6 +2539,12 @@ class WeChatAutomationGUI(QMainWindow):
 
             if hasattr(self, 'aux_like_offset_y_spinbox') and 'aux_like_offset_y' in last_inputs:
                 self.aux_like_offset_y_spinbox.setValue(last_inputs['aux_like_offset_y'])
+
+            if hasattr(self, 'aux_like_scroll_up_spinbox') and 'aux_like_scroll_up' in last_inputs:
+                self.aux_like_scroll_up_spinbox.setValue(last_inputs['aux_like_scroll_up'])
+
+            if hasattr(self, 'aux_like_scroll_down_spinbox') and 'aux_like_scroll_down' in last_inputs:
+                self.aux_like_scroll_down_spinbox.setValue(last_inputs['aux_like_scroll_down'])
 
             if hasattr(self, 'aux_like_delay_spinbox') and 'aux_like_delay_ms' in last_inputs:
                 self.aux_like_delay_spinbox.setValue(last_inputs['aux_like_delay_ms'])
@@ -2753,11 +2791,18 @@ class WeChatAutomationGUI(QMainWindow):
             screen_h = pyautogui.size().height
             center_y = int(screen_h / 2)
 
-            # 根据鼠标当前高度决定滚动量：屏幕上半多滚600，下半少滚400
-            if current_y < center_y:
-                scroll_amount = 600
+            # 根据鼠标当前高度决定滚动量：上半屏用设定值，下半屏用设定值
+            if hasattr(self, 'aux_like_scroll_up_spinbox') and hasattr(self, 'aux_like_scroll_down_spinbox'):
+                scroll_up = self.aux_like_scroll_up_spinbox.value()
+                scroll_down = self.aux_like_scroll_down_spinbox.value()
             else:
-                scroll_amount = 400
+                scroll_up = 600
+                scroll_down = 400
+
+            if current_y < center_y:
+                scroll_amount = scroll_up
+            else:
+                scroll_amount = scroll_down
 
             # 鼠标移到屏幕中线（朋友圈列表中央），滚轮作用于正确区域
             pyautogui.moveTo(current_x, center_y, duration=0)
