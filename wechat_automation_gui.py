@@ -2748,72 +2748,65 @@ class WeChatAutomationGUI(QMainWindow):
 
             # 6+7. 闭环滚动定位下一个点赞按钮（滚动→识别→微调，避免过量/反向）
             PX_PER_NOTCH = 40     # 一格滚动的像素参考（一格约滚40px内容）
-            TARGET_OFFSET = 150   # 目标：让下一条按钮停在屏幕中线下方约150px
             GRACE = 100           # 允许误差（到目标带即可）
             MAX_ROLL = 40         # 单次最大滚动格数（防止过量）
             SETTLE = 0.10         # 每次滚动后等待（给微信渲染时间）
             SCROLL_PAUSE = 0.04   # 鼠标移动后的短暂停顿
+            MAX_SEEK = 20         # 寻找/微调最大循环次数
 
             screen_h = pyautogui.size().height
             center_y = int(screen_h / 2)
-            target_y = center_y + TARGET_OFFSET
             located_pos = None
 
             # 确保鼠标在朋友圈列表中央，滚轮作用于正确区域
             pyautogui.moveTo(current_x, center_y, duration=0)
             time.sleep(SCROLL_PAUSE)
 
-            # 第一阶段：下滚直到中线以下区域能识别到下一条（用闭环小步逼近，避免过量）
-            MAX_SEEK = 30
+            # 第一阶段：从鼠标位置下方找"下一条"按钮（不是中线以下！）
+            # 找不到就下滚让它滚进来（闭环小步逼近）
+            base_y = current_y
             for _ in range(MAX_SEEK):
-                positions = self._find_next_dianzan(current_x, center_y, below_mid=True)
+                positions = self._find_next_dianzan(current_x, base_y)
                 if positions:
                     located_pos = positions[0]
                     break
-                self._reliable_scroll(20)   # 找不到就小步下滚
+                # 找不到：下滚一段让下一条滚进来，并把搜索基准移到中线
+                self._reliable_scroll(30)
                 time.sleep(SETTLE)
+                base_y = center_y
                 pyautogui.moveTo(current_x, center_y, duration=0)
                 time.sleep(SCROLL_PAUSE)
+                positions = self._find_next_dianzan(current_x, center_y)
+                if positions:
+                    located_pos = positions[0]
+                    break
 
-            # 第二阶段：闭环微调，把下一条按钮滚到目标带（略低于中线）
+            # 第二阶段：闭环微调，把下一条按钮滚到屏幕中线附近（过头自动回滚）
             if located_pos:
                 for _ in range(MAX_SEEK):
                     nx, ny = located_pos
-                    diff = ny - target_y
+                    diff = ny - center_y
                     if abs(diff) <= GRACE:
-                        break  # 已在目标带，到位
+                        break  # 已在中线附近，到位
+                    roll = min(int(abs(diff) / PX_PER_NOTCH) + 1, MAX_ROLL)
                     if diff > 0:
                         # 按钮太靠下 → 向下滚
-                        roll = int(diff / PX_PER_NOTCH) + 1
+                        self._reliable_scroll(roll)
                     else:
-                        # 按钮太靠上（可能滚过头）→ 向上回滚
-                        roll = int(-diff / PX_PER_NOTCH) + 1
-                        self._reliable_scroll(-min(roll, MAX_ROLL))
-                        time.sleep(SETTLE)
-                        pyautogui.moveTo(current_x, center_y, duration=0)
-                        time.sleep(SCROLL_PAUSE)
-                        try:
-                            new_positions = self._find_next_dianzan(current_x, center_y, below_mid=True)
-                            if new_positions:
-                                located_pos = new_positions[0]
-                        except Exception:
-                            pass
-                        continue
-                    # 向下滚
-                    self._reliable_scroll(min(roll, MAX_ROLL))
+                        # 按钮太靠上（滚过头）→ 向上回滚
+                        self._reliable_scroll(-roll)
                     time.sleep(SETTLE)
                     pyautogui.moveTo(current_x, center_y, duration=0)
                     time.sleep(SCROLL_PAUSE)
-                    located_pos = None
-                    new_positions = self._find_next_dianzan(current_x, center_y, below_mid=True)
-                    if new_positions:
-                        located_pos = new_positions[0]
-                    if located_pos is None:
+                    re_positions = self._find_next_dianzan(current_x, center_y)
+                    if re_positions:
+                        located_pos = re_positions[0]
+                    else:
                         break
 
             if located_pos:
                 # 精确定位：重新识别下一条按钮并移动鼠标过去
-                final_positions = self._find_next_dianzan(current_x, center_y, below_mid=True)
+                final_positions = self._find_next_dianzan(current_x, center_y)
                 final_pos = final_positions[0] if final_positions else located_pos
                 fx, fy = final_pos
                 self.update_status(
