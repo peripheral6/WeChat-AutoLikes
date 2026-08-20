@@ -1288,6 +1288,14 @@ class WeChatAutomationGUI(QMainWindow):
         helper_config_layout = QHBoxLayout()
         helper_config_layout.setSpacing(10)
 
+        offset_x_label = QLabel("向左偏移:")
+        offset_x_label.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_offset_x_spinbox = QSpinBox()
+        self.aux_like_offset_x_spinbox.setRange(-500, 500)
+        self.aux_like_offset_x_spinbox.setValue(-240)
+        self.aux_like_offset_x_spinbox.setSuffix(" px")
+        self.aux_like_offset_x_spinbox.setFont(QFont("Microsoft YaHei", 10))
+
         offset_y_label = QLabel("下滚行数:")
         offset_y_label.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_offset_y_spinbox = QSpinBox()
@@ -1309,6 +1317,8 @@ class WeChatAutomationGUI(QMainWindow):
         self.aux_like_test_btn.clicked.connect(self.execute_aux_like_once)
         self.aux_like_test_btn.setToolTip("立即执行一次辅助点赞动作（点击当前位置，自动找下一个，然后下滚）")
 
+        helper_config_layout.addWidget(offset_x_label)
+        helper_config_layout.addWidget(self.aux_like_offset_x_spinbox)
         helper_config_layout.addWidget(offset_y_label)
         helper_config_layout.addWidget(self.aux_like_offset_y_spinbox)
         helper_config_layout.addWidget(delay_label)
@@ -1318,7 +1328,7 @@ class WeChatAutomationGUI(QMainWindow):
 
         helper_layout.addLayout(helper_config_layout)
 
-        helper_hint = QLabel("说明：F10 触发后仅执行一次，点击当前鼠标位置，自动识别下一个点赞按钮并移动鼠标，然后按设置下滚")
+        helper_hint = QLabel("说明：F10 触发后仅执行一次，点击当前鼠标位置，自动识别下一个点赞按钮并移动鼠标（可向左偏移），然后点击并下滚")
         helper_hint.setFont(QFont("Microsoft YaHei", 9))
         helper_hint.setStyleSheet("color: #666666;")
         helper_layout.addWidget(helper_hint)
@@ -2177,6 +2187,9 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'aux_like_enable_checkbox'):
                 self.aux_like_enable_checkbox.stateChanged.connect(self.save_last_inputs)
 
+            if hasattr(self, 'aux_like_offset_x_spinbox'):
+                self.aux_like_offset_x_spinbox.valueChanged.connect(self.save_last_inputs)
+
             if hasattr(self, 'aux_like_offset_y_spinbox'):
                 self.aux_like_offset_y_spinbox.valueChanged.connect(self.save_last_inputs)
 
@@ -2282,6 +2295,9 @@ class WeChatAutomationGUI(QMainWindow):
             # 保存辅助点赞设置
             if hasattr(self, 'aux_like_enable_checkbox'):
                 config['last_inputs']['aux_like_hotkey_enabled'] = self.aux_like_enable_checkbox.isChecked()
+
+            if hasattr(self, 'aux_like_offset_x_spinbox'):
+                config['last_inputs']['aux_like_offset_x'] = self.aux_like_offset_x_spinbox.value()
 
             if hasattr(self, 'aux_like_offset_y_spinbox'):
                 config['last_inputs']['aux_like_offset_y'] = self.aux_like_offset_y_spinbox.value()
@@ -2467,6 +2483,9 @@ class WeChatAutomationGUI(QMainWindow):
                 self.enable_window_resize_checkbox.setChecked(last_inputs['enable_window_resize'])
 
             # 恢复辅助点赞设置
+            if hasattr(self, 'aux_like_offset_x_spinbox') and 'aux_like_offset_x' in last_inputs:
+                self.aux_like_offset_x_spinbox.setValue(last_inputs['aux_like_offset_x'])
+
             if hasattr(self, 'aux_like_offset_y_spinbox') and 'aux_like_offset_y' in last_inputs:
                 self.aux_like_offset_y_spinbox.setValue(last_inputs['aux_like_offset_y'])
 
@@ -2626,6 +2645,7 @@ class WeChatAutomationGUI(QMainWindow):
             self._aux_like_last_trigger_time = now
 
         try:
+            offset_x = self.aux_like_offset_x_spinbox.value()
             offset_y = self.aux_like_offset_y_spinbox.value()
             delay_ms = self.aux_like_delay_spinbox.value()
 
@@ -2656,16 +2676,18 @@ class WeChatAutomationGUI(QMainWindow):
 
             if next_position:
                 next_x, next_y = next_position
+                # 应用向左偏移
+                final_x = next_x + offset_x
                 self.update_status(
-                    f"🎯 找到下一个点赞按钮：({next_x},{next_y})",
+                    f"🎯 找到下一个点赞按钮：({next_x},{next_y})，向左偏移{offset_x}px",
                     "#2ecc71"
                 )
-                # 移动鼠标到下一个点赞按钮位置
-                pyautogui.moveTo(next_x, next_y, duration=0)
+                # 移动鼠标到下一个点赞按钮位置（带偏移）
+                pyautogui.moveTo(final_x, next_y, duration=0)
                 # 等待间隔后再点击（点赞）
                 if delay_ms > 0:
                     time.sleep(delay_ms / 1000.0)
-                pyautogui.click(next_x, next_y)
+                pyautogui.click(final_x, next_y)
             else:
                 # 未找到下一个按钮，移回原始位置
                 self.update_status(
