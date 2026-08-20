@@ -71,8 +71,7 @@ try:
         search_contact, search_group, find_and_click_pengyouquan_with_dianzan,
         ensure_wechat_is_active, pengyouquan_dianzan_action, pengyouquan_multi_dianzan_action,
         find_and_click_pengyouquan, adjust_pengyouquan_window_size,
-        optimized_pengyouquan_dianzan_action, pengyouquan_like_all_action,
-        auto_detect_and_like_current_post
+        optimized_pengyouquan_dianzan_action, pengyouquan_like_all_action
     )
     print("✅ GUI环境：微信核心引擎已加载")
 except ImportError as e:
@@ -1280,7 +1279,7 @@ class WeChatAutomationGUI(QMainWindow):
         helper_layout = QVBoxLayout(helper_group)
         helper_layout.setSpacing(12)
 
-        self.aux_like_enable_checkbox = QCheckBox("启用F10自动辅助点赞（自动识别当前帖子，一键点赞并切换下一个）")
+        self.aux_like_enable_checkbox = QCheckBox("启用F10辅助点赞（每按一次F10仅执行一次）")
         self.aux_like_enable_checkbox.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_enable_checkbox.setToolTip("启用后按F10会在当前鼠标位置点击一次，再在偏移位置点击一次")
         self.aux_like_enable_checkbox.stateChanged.connect(self.on_aux_like_hotkey_changed)
@@ -1313,22 +1312,6 @@ class WeChatAutomationGUI(QMainWindow):
         self.aux_like_delay_spinbox.setSuffix(" ms")
         self.aux_like_delay_spinbox.setFont(QFont("Microsoft YaHei", 10))
 
-        scroll_label = QLabel("完成后下滚:")
-        scroll_label.setFont(QFont("Microsoft YaHei", 10))
-        self.aux_like_scroll_lines_spinbox = QSpinBox()
-        self.aux_like_scroll_lines_spinbox.setRange(0, 500)
-        self.aux_like_scroll_lines_spinbox.setValue(0)
-        self.aux_like_scroll_lines_spinbox.setSuffix(" 行")
-        self.aux_like_scroll_lines_spinbox.setFont(QFont("Microsoft YaHei", 10))
-        
-        scroll_delay_label = QLabel("下滚前延时:")
-        scroll_delay_label.setFont(QFont("Microsoft YaHei", 10))
-        self.aux_like_scroll_delay_spinbox = QSpinBox()
-        self.aux_like_scroll_delay_spinbox.setRange(0, 5000)
-        self.aux_like_scroll_delay_spinbox.setValue(0)
-        self.aux_like_scroll_delay_spinbox.setSuffix(" ms")
-        self.aux_like_scroll_delay_spinbox.setFont(QFont("Microsoft YaHei", 10))
-
         self.aux_like_test_btn = ModernButton("测试执行一次", "secondary")
         self.aux_like_test_btn.setFixedSize(130, 42)
         self.aux_like_test_btn.clicked.connect(self.execute_aux_like_once)
@@ -1340,16 +1323,12 @@ class WeChatAutomationGUI(QMainWindow):
         helper_config_layout.addWidget(self.aux_like_offset_y_spinbox)
         helper_config_layout.addWidget(delay_label)
         helper_config_layout.addWidget(self.aux_like_delay_spinbox)
-        helper_config_layout.addWidget(scroll_label)
-        helper_config_layout.addWidget(self.aux_like_scroll_lines_spinbox)
-        helper_config_layout.addWidget(scroll_delay_label)
-        helper_config_layout.addWidget(self.aux_like_scroll_delay_spinbox)
         helper_config_layout.addWidget(self.aux_like_test_btn)
         helper_config_layout.addStretch()
 
         helper_layout.addLayout(helper_config_layout)
 
-        helper_hint = QLabel("说明：F10 触发后仅执行一次，先点击当前鼠标位置，再点击偏移位置，最后可自动下滚指定行数")
+        helper_hint = QLabel("说明：F10 触发后仅执行一次，先点击当前鼠标位置，再点击偏移位置（可用于快速辅助点赞）")
         helper_hint.setFont(QFont("Microsoft YaHei", 9))
         helper_hint.setStyleSheet("color: #666666;")
         helper_layout.addWidget(helper_hint)
@@ -2217,12 +2196,6 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'aux_like_delay_spinbox'):
                 self.aux_like_delay_spinbox.valueChanged.connect(self.save_last_inputs)
 
-            if hasattr(self, 'aux_like_scroll_lines_spinbox'):
-                self.aux_like_scroll_lines_spinbox.valueChanged.connect(self.save_last_inputs)
-            
-            if hasattr(self, 'aux_like_scroll_delay_spinbox'):
-                self.aux_like_scroll_delay_spinbox.valueChanged.connect(self.save_last_inputs)
-                
         except Exception as e:
             print(f"连接自动保存信号失败: {e}")
     
@@ -2332,12 +2305,6 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'aux_like_delay_spinbox'):
                 config['last_inputs']['aux_like_delay_ms'] = self.aux_like_delay_spinbox.value()
 
-            if hasattr(self, 'aux_like_scroll_lines_spinbox'):
-                config['last_inputs']['aux_like_scroll_lines'] = self.aux_like_scroll_lines_spinbox.value()
-            
-            if hasattr(self, 'aux_like_scroll_delay_spinbox'):
-                config['last_inputs']['aux_like_scroll_delay'] = self.aux_like_scroll_delay_spinbox.value()
-            
             # 写入配置文件
             with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(config, f, ensure_ascii=False, indent=2)
@@ -2525,12 +2492,6 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'aux_like_delay_spinbox') and 'aux_like_delay_ms' in last_inputs:
                 self.aux_like_delay_spinbox.setValue(last_inputs['aux_like_delay_ms'])
 
-            if hasattr(self, 'aux_like_scroll_lines_spinbox') and 'aux_like_scroll_lines' in last_inputs:
-                self.aux_like_scroll_lines_spinbox.setValue(last_inputs['aux_like_scroll_lines'])
-            
-            if hasattr(self, 'aux_like_scroll_delay_spinbox') and 'aux_like_scroll_delay' in last_inputs:
-                self.aux_like_scroll_delay_spinbox.setValue(last_inputs['aux_like_scroll_delay'])
-
             if hasattr(self, 'aux_like_enable_checkbox'):
                 enabled = last_inputs.get('aux_like_hotkey_enabled', False)
                 self.aux_like_enable_checkbox.setChecked(enabled)
@@ -2673,7 +2634,7 @@ class WeChatAutomationGUI(QMainWindow):
                 self.update_status(f"⚠️ 关闭F10热键时出现问题: {e}", "#FF69B4")
 
     def execute_aux_like_once(self, from_hotkey=False):
-        """执行一次辅助点赞动作：自动识别当前帖子 + 一键点赞 + 切换下一个"""
+        """执行一次辅助点赞动作：当前点 + 偏移点"""
         if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
             return
 
@@ -2683,78 +2644,28 @@ class WeChatAutomationGUI(QMainWindow):
                 return
             self._aux_like_last_trigger_time = now
 
-        original_pause = pyautogui.PAUSE
-        original_min_duration = getattr(pyautogui, 'MINIMUM_DURATION', 0.0)
-        original_min_sleep = getattr(pyautogui, 'MINIMUM_SLEEP', 0.0)
-
         try:
-            # 临时关闭PyAutoGUI全局延时，确保0ms场景也能极快执行
-            pyautogui.PAUSE = 0
-            pyautogui.MINIMUM_DURATION = 0
-            pyautogui.MINIMUM_SLEEP = 0
+            offset_x = self.aux_like_offset_x_spinbox.value()
+            offset_y = self.aux_like_offset_y_spinbox.value()
+            delay_ms = self.aux_like_delay_spinbox.value()
+
+            current_pos = pyautogui.position()
+            target_x = current_pos.x + offset_x
+            target_y = current_pos.y + offset_y
 
             trigger_source = "F10" if from_hotkey else "测试按钮"
             self.update_status(
-                f"🤖 自动辅助点赞({trigger_source})：正在识别当前可见帖子...",
+                f"🖱️ 辅助点赞({trigger_source})：先点({current_pos.x},{current_pos.y})，再点({target_x},{target_y})",
                 "#FF69B4"
             )
 
-            # 调用核心引擎的自动识别点赞功能
-            success, message = auto_detect_and_like_current_post(ocr_engine_ref=ocr_engine)
+            pyautogui.click(current_pos.x, current_pos.y)
+            if delay_ms > 0:
+                time.sleep(delay_ms / 1000.0)
+            pyautogui.click(target_x, target_y)
 
-            if success:
-                self.update_status(
-                    f"✅ {message}",
-                    "#2ecc71"
-                )
-            else:
-                # 自动识别失败，尝试回退到简单点击模式（用户需将鼠标移至目标位置附近）
-                print(f"⚠️ 自动识别失败: {message}, 尝试回退方案...")
-                self.update_status(
-                    f"⚠️ {message}，正在尝试简单点击回退...",
-                    "#ff8c00"
-                )
-                # 简短延迟让用户有机会看到提示
-                time.sleep(0.5)
-                self.simple_fallback_click(original_pause, original_min_duration, original_min_sleep, trigger_source)
         except Exception as e:
             self.update_status(f"❌ 辅助点赞执行失败: {e}", "#f44336")
-        finally:
-            pyautogui.PAUSE = original_pause
-            pyautogui.MINIMUM_DURATION = original_min_duration
-            pyautogui.MINIMUM_SLEEP = original_min_sleep
-
-    def simple_fallback_click(self, original_pause, original_min_duration, original_min_sleep, trigger_source):
-        """简单的回退点击：在当前鼠标位置附近执行双键操作"""
-        try:
-            if hasattr(self, 'aux_like_offset_x_spinbox') and hasattr(self, 'aux_like_offset_y_spinbox'):
-                offset_x = self.aux_like_offset_x_spinbox.value()
-                offset_y = self.aux_like_offset_y_spinbox.value()
-
-                current_pos = pyautogui.position()
-                target_x = current_pos.x + offset_x
-                target_y = current_pos.y + offset_y
-
-                self.update_status(
-                    f"🖱️ 简单模式({trigger_source}): 点({current_pos.x},{current_pos.y}) + 双击({target_x},{target_y})",
-                    "#FF69B4"
-                )
-
-                pyautogui.click(current_pos.x, current_pos.y)
-                time.sleep(0.1)
-                pyautogui.doubleClick(target_x, target_y)
-                time.sleep(0.5)
-                self.update_status(
-                    f"✅ 简单模式点击完成",
-                    "#2ecc71"
-                )
-            else:
-                self.update_status(
-                    "⚠️ 无法使用简单模式：缺少偏移量设置",
-                    "#f39c12"
-                )
-        except Exception as e:
-            self.update_status(f"❌ 简单模式失败: {e}", "#f44336")
 
     def closeEvent(self, event):
         """窗口关闭时清理全局热键"""
