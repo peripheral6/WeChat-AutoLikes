@@ -1302,10 +1302,10 @@ class WeChatAutomationGUI(QMainWindow):
         self.aux_like_offset_x_spinbox.setSuffix(" px")
         self.aux_like_offset_x_spinbox.setFont(QFont("Microsoft YaHei", 10))
 
-        offset_y_label = QLabel("下滚行数:")
+        offset_y_label = QLabel("兜底下滚:")
         offset_y_label.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_offset_y_spinbox = QSpinBox()
-        self.aux_like_offset_y_spinbox.setRange(-500, 500)
+        self.aux_like_offset_y_spinbox.setRange(0, 500)
         self.aux_like_offset_y_spinbox.setValue(3)
         self.aux_like_offset_y_spinbox.setSuffix(" 行")
         self.aux_like_offset_y_spinbox.setFont(QFont("Microsoft YaHei", 10))
@@ -1334,7 +1334,7 @@ class WeChatAutomationGUI(QMainWindow):
 
         helper_layout.addLayout(helper_config_layout)
 
-        helper_hint = QLabel("说明：方向右键/F10 点赞当前条（点击→左移→点击→移回→下滚→定位下一个）；方向下键 跳过当前条直接定位下一个")
+        helper_hint = QLabel("说明：右键/F10 点赞当前条（点击→左移→点击→移回）；下键跳过。之后自动识别下一条并自适应滚动使其居中并定位")
         helper_hint.setFont(QFont("Microsoft YaHei", 9))
         helper_hint.setStyleSheet("color: #666666;")
         helper_layout.addWidget(helper_hint)
@@ -2733,24 +2733,54 @@ class WeChatAutomationGUI(QMainWindow):
                 # 跳过模式：不做点赞，直接进入下滚+识别下一个
                 time.sleep(STEP_DELAY)
 
-            # 6. 向下滚动行数（offset_y为正时向下滚动）
-            if offset_y != 0:
-                pyautogui.scroll(-int(offset_y))
-                time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
+            # 6+7. 自适应下滚+识别定位下一个点赞按钮（使下一条大致居中）
+            SCREEN_PX_PER_NOTCH = 40  # 每个滚轮notch大约滚动的像素数（经验值）
 
-            # 7. 自动识别下一个点赞按钮，移动鼠标过去（为下次F10做准备）
+            # 先识别下一个点赞按钮的初始位置
             next_position = self._find_next_dianzan(current_x, current_y)
+
             if next_position:
                 next_x, next_y = next_position
-                self.update_status(
-                    f"🎯 已定位下一个点赞按钮：({next_x},{next_y})",
-                    "#2ecc71"
-                )
-                pyautogui.moveTo(next_x, next_y, duration=0)
-                time.sleep(STEP_DELAY)
+                screen_h = pyautogui.size().height
+                center_y = screen_h / 2
+
+                # 计算按钮中心与屏幕中线的垂直偏差
+                delta = next_y - center_y
+                # delta>0:按钮在中线下方，需向下滚使其上移；delta<0:在中线上方，向上滚使其下移
+                roll = max(1, abs(int(delta / SCREEN_PX_PER_NOTCH)))
+                roll = min(roll, 30)  # 限制单次最大滚动量
+
+                if delta > 0:
+                    pyautogui.scroll(-roll)  # 向下滚动，按钮上移
+                else:
+                    pyautogui.scroll(roll)   # 向上滚动，按钮下移
+                time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
+
+                # 滚动后按钮位置已变化，重新识别定位鼠标
+                new_position = self._find_next_dianzan(current_x, current_y)
+                if new_position:
+                    nx2, ny2 = new_position
+                    self.update_status(
+                        f"🎯 已定位下一个点赞按钮：({nx2},{ny2})（自适应滚动{roll}格使其居中）",
+                        "#2ecc71"
+                    )
+                    pyautogui.moveTo(nx2, ny2, duration=0)
+                    time.sleep(STEP_DELAY)
+                else:
+                    # 滚动后未再识别到，退回移动到最后已知位置
+                    self.update_status(
+                        f"🎯 已定位下一个点赞按钮：({next_x},{next_y})",
+                        "#2ecc71"
+                    )
+                    pyautogui.moveTo(next_x, next_y, duration=0)
+                    time.sleep(STEP_DELAY)
             else:
+                # 未识别到下一个，回退到基础滚动（保留用户设置的下滚行数）
+                if offset_y != 0:
+                    pyautogui.scroll(-int(offset_y))
+                    time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
                 self.update_status(
-                    f"ℹ️ 未检测到下一个点赞按钮，鼠标留在当前滚动位置",
+                    f"ℹ️ 未检测到下一个点赞按钮，已按基础下滚{offset_y}行",
                     "#f39c12"
                 )
 
