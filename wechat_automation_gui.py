@@ -2824,9 +2824,9 @@ class WeChatAutomationGUI(QMainWindow):
                 pyautogui.moveTo(fx, fy, duration=0)
                 time.sleep(STEP_DELAY)
             else:
-                # 识别不到，回退基础下滚一次后停止，不再无限滚
+                # 识别不到，回退基础下滚一次后停止（用最开始的pyautogui.scroll命令）
                 if offset_y != 0:
-                    self._reliable_scroll(int(offset_y))
+                    pyautogui.scroll(-int(offset_y))
                     time.sleep(SETTLE)
                 self.update_status(
                     f"ℹ️ 未检测到下一个点赞按钮，已按基础下滚{offset_y}行",
