@@ -2736,6 +2736,7 @@ class WeChatAutomationGUI(QMainWindow):
             # 6+7. 自适应滚动+识别定位下一个点赞按钮（大滚动量、快速、循环居中）
             PX_PER_NOTCH = 60      # 偏差像素 → 滚动格数 的换算系数（一格约滚60px内容）
             SCROLL_PAUSE = 0.04    # 每次滚动后的短暂停顿（40ms），保证滚动生效且快速
+            SCROLL_SETTLE = 0.25   # 大滚动后的稳定等待（给微信时间完成滚动再识别）
             MAX_ATTEMPTS = 2       # 居中循环最多2次（减少慢速循环）
 
             screen_h = pyautogui.size().height
@@ -2751,7 +2752,8 @@ class WeChatAutomationGUI(QMainWindow):
                 # 鼠标下方没找到，先基础下滚，让下一条滚进下半个屏幕
                 if offset_y > 0:
                     pyautogui.scroll(-int(offset_y))
-                    time.sleep(SCROLL_PAUSE)
+                    # 大滚动后等待足够时间，让微信完成滚动（否则滚动会被后续moveTo/识别打断而失效）
+                    time.sleep(SCROLL_SETTLE)
                 # 鼠标跟随下移到屏幕中线，作为新的搜索基准
                 pyautogui.moveTo(current_x, center_y, duration=0)
                 time.sleep(SCROLL_PAUSE)
@@ -2794,7 +2796,7 @@ class WeChatAutomationGUI(QMainWindow):
                 # 循环仍未找到，做一次基础下滚后停止，不再无限下滚
                 if offset_y != 0:
                     pyautogui.scroll(-int(offset_y))
-                    time.sleep(SCROLL_PAUSE)
+                    time.sleep(SCROLL_SETTLE)
                 self.update_status(
                     f"ℹ️ 未检测到下一个点赞按钮，已按基础下滚{offset_y}行",
                     "#f39c12"
