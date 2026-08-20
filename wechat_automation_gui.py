@@ -2662,6 +2662,10 @@ class WeChatAutomationGUI(QMainWindow):
                 )
                 # 移动鼠标到下一个点赞按钮位置
                 pyautogui.moveTo(next_x, next_y, duration=0)
+                # 等待间隔后再点击（点赞）
+                if delay_ms > 0:
+                    time.sleep(delay_ms / 1000.0)
+                pyautogui.click(next_x, next_y)
             else:
                 # 未找到下一个按钮，移回原始位置
                 self.update_status(
