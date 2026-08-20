@@ -2883,13 +2883,15 @@ class WeChatAutomationGUI(QMainWindow):
             return []
 
     def _reliable_scroll(self, notches):
-        """可靠地向下滚动指定格数。
+        """可靠地滚动指定格数。
         用 win32 逐个发送滚轮 tick（每格120），避免 pyautogui.scroll 单次大值被系统丢弃。
         notches>0 向下滚动，notches<0 向上滚动。"""
         try:
             if notches == 0:
                 return
-            direction = -1 if notches < 0 else 1
+            # win32的MOUSEEVENTF_WHEEL：delta=正 向上滚，delta=负 向下滚。
+            # notches>0（向下）→ delta负；notches<0（向上）→ delta正。
+            direction = 1 if notches < 0 else -1
             count = abs(int(notches))
             # 限制单次调用最大格数，防止一次过多
             count = min(count, 2000)
