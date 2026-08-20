@@ -1288,37 +1288,27 @@ class WeChatAutomationGUI(QMainWindow):
         helper_config_layout = QHBoxLayout()
         helper_config_layout.setSpacing(10)
 
-        offset_x_label = QLabel("水平偏移:")
-        offset_x_label.setFont(QFont("Microsoft YaHei", 10))
-        self.aux_like_offset_x_spinbox = QSpinBox()
-        self.aux_like_offset_x_spinbox.setRange(-500, 500)
-        self.aux_like_offset_x_spinbox.setValue(120)
-        self.aux_like_offset_x_spinbox.setSuffix(" px")
-        self.aux_like_offset_x_spinbox.setFont(QFont("Microsoft YaHei", 10))
-
         offset_y_label = QLabel("下滚行数:")
         offset_y_label.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_offset_y_spinbox = QSpinBox()
         self.aux_like_offset_y_spinbox.setRange(-500, 500)
-        self.aux_like_offset_y_spinbox.setValue(0)
+        self.aux_like_offset_y_spinbox.setValue(3)
         self.aux_like_offset_y_spinbox.setSuffix(" 行")
         self.aux_like_offset_y_spinbox.setFont(QFont("Microsoft YaHei", 10))
 
-        delay_label = QLabel("两次点击间隔:")
+        delay_label = QLabel("点击间隔:")
         delay_label.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_delay_spinbox = QSpinBox()
         self.aux_like_delay_spinbox.setRange(0, 2000)
-        self.aux_like_delay_spinbox.setValue(120)
+        self.aux_like_delay_spinbox.setValue(100)
         self.aux_like_delay_spinbox.setSuffix(" ms")
         self.aux_like_delay_spinbox.setFont(QFont("Microsoft YaHei", 10))
 
         self.aux_like_test_btn = ModernButton("测试执行一次", "secondary")
         self.aux_like_test_btn.setFixedSize(130, 42)
         self.aux_like_test_btn.clicked.connect(self.execute_aux_like_once)
-        self.aux_like_test_btn.setToolTip("立即执行一次辅助点赞动作（点击当前位置后，移回并下滚）")
+        self.aux_like_test_btn.setToolTip("立即执行一次辅助点赞动作（点击当前位置，自动找下一个，然后下滚）")
 
-        helper_config_layout.addWidget(offset_x_label)
-        helper_config_layout.addWidget(self.aux_like_offset_x_spinbox)
         helper_config_layout.addWidget(offset_y_label)
         helper_config_layout.addWidget(self.aux_like_offset_y_spinbox)
         helper_config_layout.addWidget(delay_label)
@@ -1328,7 +1318,7 @@ class WeChatAutomationGUI(QMainWindow):
 
         helper_layout.addLayout(helper_config_layout)
 
-        helper_hint = QLabel("说明：F10 触发后仅执行一次，先点击当前鼠标位置，再移回原位，最后按设置下滚指定行数")
+        helper_hint = QLabel("说明：F10 触发后仅执行一次，点击当前鼠标位置，自动识别下一个点赞按钮并移动鼠标，然后按设置下滚")
         helper_hint.setFont(QFont("Microsoft YaHei", 9))
         helper_hint.setStyleSheet("color: #666666;")
         helper_layout.addWidget(helper_hint)
@@ -2187,9 +2177,6 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'aux_like_enable_checkbox'):
                 self.aux_like_enable_checkbox.stateChanged.connect(self.save_last_inputs)
 
-            if hasattr(self, 'aux_like_offset_x_spinbox'):
-                self.aux_like_offset_x_spinbox.valueChanged.connect(self.save_last_inputs)
-
             if hasattr(self, 'aux_like_offset_y_spinbox'):
                 self.aux_like_offset_y_spinbox.valueChanged.connect(self.save_last_inputs)
 
@@ -2295,9 +2282,6 @@ class WeChatAutomationGUI(QMainWindow):
             # 保存辅助点赞设置
             if hasattr(self, 'aux_like_enable_checkbox'):
                 config['last_inputs']['aux_like_hotkey_enabled'] = self.aux_like_enable_checkbox.isChecked()
-
-            if hasattr(self, 'aux_like_offset_x_spinbox'):
-                config['last_inputs']['aux_like_offset_x'] = self.aux_like_offset_x_spinbox.value()
 
             if hasattr(self, 'aux_like_offset_y_spinbox'):
                 config['last_inputs']['aux_like_offset_y'] = self.aux_like_offset_y_spinbox.value()
@@ -2483,9 +2467,6 @@ class WeChatAutomationGUI(QMainWindow):
                 self.enable_window_resize_checkbox.setChecked(last_inputs['enable_window_resize'])
 
             # 恢复辅助点赞设置
-            if hasattr(self, 'aux_like_offset_x_spinbox') and 'aux_like_offset_x' in last_inputs:
-                self.aux_like_offset_x_spinbox.setValue(last_inputs['aux_like_offset_x'])
-
             if hasattr(self, 'aux_like_offset_y_spinbox') and 'aux_like_offset_y' in last_inputs:
                 self.aux_like_offset_y_spinbox.setValue(last_inputs['aux_like_offset_y'])
 
@@ -2634,7 +2615,7 @@ class WeChatAutomationGUI(QMainWindow):
                 self.update_status(f"⚠️ 关闭F10热键时出现问题: {e}", "#FF69B4")
 
     def execute_aux_like_once(self, from_hotkey=False):
-        """执行一次辅助点赞动作：当前点 + 偏移点"""
+        """执行一次辅助点赞动作：点击当前位置，自动识别下一个点赞按钮并移动鼠标"""
         if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
             return
 
@@ -2645,7 +2626,6 @@ class WeChatAutomationGUI(QMainWindow):
             self._aux_like_last_trigger_time = now
 
         try:
-            offset_x = self.aux_like_offset_x_spinbox.value()
             offset_y = self.aux_like_offset_y_spinbox.value()
             delay_ms = self.aux_like_delay_spinbox.value()
 
@@ -2658,24 +2638,41 @@ class WeChatAutomationGUI(QMainWindow):
             pyautogui.MINIMUM_SLEEP = 0
 
             current_pos = pyautogui.position()
-            target_x = current_pos.x + offset_x
+            current_x, current_y = current_pos.x, current_pos.y
 
             trigger_source = "F10" if from_hotkey else "测试按钮"
             self.update_status(
-                f"🖱️ 辅助点赞({trigger_source})：点({current_pos.x},{current_pos.y})，移回后下滚{offset_y}行",
+                f"🖱️ 辅助点赞({trigger_source})：点击({current_x},{current_y})",
                 "#FF69B4"
             )
 
-            pyautogui.click(current_pos.x, current_pos.y)
+            # 点击当前鼠标位置
+            pyautogui.click(current_x, current_y)
             if delay_ms > 0:
                 time.sleep(delay_ms / 1000.0)
 
-            # 移回原始位置
-            pyautogui.moveTo(current_pos.x, current_pos.y, duration=0)
+            # 自动识别下一个点赞按钮（在当前位置下方）
+            next_position = self._find_next_dianzan(current_x, current_y)
 
-            # 根据垂直偏移滚动（负值向下，正值向上）
+            if next_position:
+                next_x, next_y = next_position
+                self.update_status(
+                    f"🎯 找到下一个点赞按钮：({next_x},{next_y})",
+                    "#2ecc71"
+                )
+                # 移动鼠标到下一个点赞按钮位置
+                pyautogui.moveTo(next_x, next_y, duration=0)
+            else:
+                # 未找到下一个按钮，移回原始位置
+                self.update_status(
+                    f"⚠️ 未找到下一个点赞按钮，移回原位",
+                    "#f39c12"
+                )
+                pyautogui.moveTo(current_x, current_y, duration=0)
+
+            # 根据垂直偏移滚动（负值向上，正值向下）
             if offset_y != 0:
-                pyautogui.scroll(-int(offset_y))
+                pyautogui.scroll(int(offset_y))
 
         except Exception as e:
             self.update_status(f"❌ 辅助点赞执行失败: {e}", "#f44336")
@@ -2684,6 +2681,55 @@ class WeChatAutomationGUI(QMainWindow):
             pyautogui.PAUSE = original_pause
             pyautogui.MINIMUM_DURATION = original_min_duration
             pyautogui.MINIMUM_SLEEP = original_min_sleep
+
+    def _find_next_dianzan(self, last_x, last_y, search_area_height=800):
+        """在指定区域查找下一个点赞按钮（在last_y下方）"""
+        try:
+            # 加载点赞按钮模板
+            asset_path = os.path.join(os.path.dirname(__file__), 'assets', 'dianzan.png')
+            if not os.path.exists(asset_path):
+                print(f"⚠️ 未找到点赞图标: {asset_path}")
+                return None
+
+            # 在鼠标下方的区域搜索
+            screen_width, screen_height = pyautogui.size()
+            search_top = last_y + 50  # 避免匹配到刚点击的按钮
+            search_left = max(0, last_x - 200)
+            search_right = min(screen_width, last_x + 200)
+            search_bottom = min(screen_height, search_top + search_area_height)
+
+            matches = list(pyautogui.locateAllOnScreen(
+                asset_path,
+                confidence=0.8,
+                region=(search_left, search_top, search_right - search_left, search_bottom - search_top)
+            ))
+
+            if not matches:
+                return None
+
+            # 找到距离当前点击位置最近的下一个按钮
+            best_match = None
+            best_distance = float('inf')
+
+            for m in matches:
+                center_x = m.left + m.width // 2
+                center_y = m.top + m.height // 2
+
+                # 只考虑在点击位置下方的按钮
+                if center_y <= last_y:
+                    continue
+
+                # 计算距离（优先选择垂直距离近的）
+                distance = center_y - last_y
+                if distance < best_distance:
+                    best_distance = distance
+                    best_match = (center_x, center_y)
+
+            return best_match
+
+        except Exception as e:
+            print(f"⚠️ 查找下一个点赞按钮失败: {e}")
+            return None
 
     def closeEvent(self, event):
         """窗口关闭时清理全局热键"""
