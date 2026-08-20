@@ -2749,15 +2749,15 @@ class WeChatAutomationGUI(QMainWindow):
                 located_pos = first_positions[0]
 
             if located_pos is None:
-                # 鼠标下方没找到，先基础下滚，让下一条滚进下半个屏幕
-                if offset_y > 0:
-                    pyautogui.scroll(-int(offset_y))
-                    # 大滚动后等待足够时间，让微信完成滚动（否则滚动会被后续moveTo/识别打断而失效）
-                    time.sleep(SCROLL_SETTLE)
-                # 鼠标跟随下移到屏幕中线，作为新的搜索基准
+                # 鼠标下方没找到：先把鼠标移到屏幕中线（朋友圈列表中央），
+                # 让滚轮作用在正确的滚动区域，再基础下滚（否则鼠标在屏幕底部时滚动会失效）
                 pyautogui.moveTo(current_x, center_y, duration=0)
                 time.sleep(SCROLL_PAUSE)
-                # 从中线以下固定区域识别
+                if offset_y > 0:
+                    pyautogui.scroll(-int(offset_y))
+                    # 大滚动后等待足够时间，让微信完成滚动
+                    time.sleep(SCROLL_SETTLE)
+                # 鼠标已在中线，直接从中线以下固定区域识别
                 mid_positions = self._find_next_dianzan(current_x, center_y, below_mid=True)
                 if mid_positions:
                     located_pos = mid_positions[0]
@@ -2793,7 +2793,9 @@ class WeChatAutomationGUI(QMainWindow):
                 pyautogui.moveTo(fx, fy, duration=0)
                 time.sleep(STEP_DELAY)
             else:
-                # 循环仍未找到，做一次基础下滚后停止，不再无限下滚
+                # 循环仍未找到，把鼠标移到屏幕中线确保滚动区域正确，再做一次基础下滚后停止
+                pyautogui.moveTo(current_x, center_y, duration=0)
+                time.sleep(SCROLL_PAUSE)
                 if offset_y != 0:
                     pyautogui.scroll(-int(offset_y))
                     time.sleep(SCROLL_SETTLE)
