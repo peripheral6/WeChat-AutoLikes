@@ -2733,49 +2733,57 @@ class WeChatAutomationGUI(QMainWindow):
                 # 跳过模式：不做点赞，直接进入下滚+识别下一个
                 time.sleep(STEP_DELAY)
 
-            # 6+7. 自适应下滚+识别定位下一个点赞按钮（使下一条大致居中）
-            SCREEN_PX_PER_NOTCH = 40  # 每个滚轮notch大约滚动的像素数（经验值）
+            # 6+7. 自适应滚动+识别定位下一个点赞按钮（循环滚动，使下一条居中）
+            PX_PER_NOTCH = 400  # 每个滚轮notch对应约400px的滚动参考量
+            MAX_ATTEMPTS = 6    # 最多滚动尝试次数
 
-            # 先识别下一个点赞按钮的初始位置
-            next_position = self._find_next_dianzan(current_x, current_y)
+            screen_h = pyautogui.size().height
+            center_y = screen_h / 2
+            located_pos = None
 
-            if next_position:
-                next_x, next_y = next_position
-                screen_h = pyautogui.size().height
-                center_y = screen_h / 2
+            for _ in range(MAX_ATTEMPTS):
+                # 1) 先在全区域（鼠标下方）尝试识别
+                positions = self._find_next_dianzan(current_x, current_y)
+                if positions:
+                    located_pos = positions[0]
+                    nx, ny = located_pos
+                    # 若按钮已滚到屏幕中上部（中线及以下一定范围），认为到位
+                    if ny <= center_y + 200:
+                        break
+                    # 按钮还在屏幕中下部，向下滚动使其上移（滚格按400px参考）
+                    roll = max(1, int((ny - center_y) / PX_PER_NOTCH) + 1)
+                    pyautogui.scroll(-roll)
+                    time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
+                    continue
 
-                # 计算按钮中心与屏幕中线的垂直偏差
-                delta = next_y - center_y
-                # delta>0:按钮在中线下方，需向下滚使其上移；delta<0:在中线上方，向上滚使其下移
-                roll = max(1, abs(int(delta / SCREEN_PX_PER_NOTCH)))
-                roll = min(roll, 30)  # 限制单次最大滚动量
+                # 2) 全区域没识别到：先基础下滚，再从屏幕中线以下区域重试
+                if offset_y > 0:
+                    pyautogui.scroll(-int(offset_y))
+                    time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
+                mid_positions = self._find_next_dianzan(current_x, current_y, below_mid=True)
+                if mid_positions:
+                    located_pos = mid_positions[0]
+                    nx, ny = located_pos
+                    roll = max(1, int((ny - center_y) / PX_PER_NOTCH))
+                    if roll > 0:
+                        pyautogui.scroll(-roll)
+                        time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
+                    break
+                # 仍未识别到，继续循环（下一次会再尝试基础下滚+识别）
 
-                if delta > 0:
-                    pyautogui.scroll(-roll)  # 向下滚动，按钮上移
-                else:
-                    pyautogui.scroll(roll)   # 向上滚动，按钮下移
-                time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
-
-                # 滚动后按钮位置已变化，重新识别定位鼠标
-                new_position = self._find_next_dianzan(current_x, current_y)
-                if new_position:
-                    nx2, ny2 = new_position
-                    self.update_status(
-                        f"🎯 已定位下一个点赞按钮：({nx2},{ny2})（自适应滚动{roll}格使其居中）",
-                        "#2ecc71"
-                    )
-                    pyautogui.moveTo(nx2, ny2, duration=0)
-                    time.sleep(STEP_DELAY)
-                else:
-                    # 滚动后未再识别到，退回移动到最后已知位置
-                    self.update_status(
-                        f"🎯 已定位下一个点赞按钮：({next_x},{next_y})",
-                        "#2ecc71"
-                    )
-                    pyautogui.moveTo(next_x, next_y, duration=0)
-                    time.sleep(STEP_DELAY)
+            if located_pos:
+                # 滚动后按钮可能又移动了，尽量重新精确定位
+                final_positions = self._find_next_dianzan(current_x, current_y, below_mid=True)
+                final_pos = final_positions[0] if final_positions else located_pos
+                fx, fy = final_pos
+                self.update_status(
+                    f"🎯 已定位下一个点赞按钮：({fx},{fy})",
+                    "#2ecc71"
+                )
+                pyautogui.moveTo(fx, fy, duration=0)
+                time.sleep(STEP_DELAY)
             else:
-                # 未识别到下一个，回退到基础滚动（保留用户设置的下滚行数）
+                # 一直识别不到，回退基础下滚
                 if offset_y != 0:
                     pyautogui.scroll(-int(offset_y))
                     time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
@@ -2792,21 +2800,29 @@ class WeChatAutomationGUI(QMainWindow):
             pyautogui.MINIMUM_DURATION = original_min_duration
             pyautogui.MINIMUM_SLEEP = original_min_sleep
 
-    def _find_next_dianzan(self, last_x, last_y, search_area_height=800):
-        """在指定区域查找下一个点赞按钮（在last_y下方）"""
+    def _find_next_dianzan(self, last_x, last_y, search_area_height=800, below_mid=False):
+        """在指定区域查找点赞按钮（last_y下方）。
+        below_mid=True 时只搜索屏幕中线以下的区域。
+        返回排序后的位置列表 [(x, y), ...]（按y从上到下）。"""
         try:
             # 加载点赞按钮模板
             asset_path = os.path.join(os.path.dirname(__file__), 'assets', 'dianzan.png')
             if not os.path.exists(asset_path):
                 print(f"⚠️ 未找到点赞图标: {asset_path}")
-                return None
+                return []
 
             # 在鼠标下方的区域搜索
             screen_width, screen_height = pyautogui.size()
             search_top = last_y + 50  # 避免匹配到刚点击的按钮
+            # 若限制在屏幕中线以下，则从屏幕中线开始搜索
+            if below_mid:
+                search_top = max(search_top, int(screen_height / 2))
             search_left = max(0, last_x - 200)
             search_right = min(screen_width, last_x + 200)
             search_bottom = min(screen_height, search_top + search_area_height)
+
+            if search_right <= search_left or search_bottom <= search_top:
+                return []
 
             matches = list(pyautogui.locateAllOnScreen(
                 asset_path,
@@ -2815,31 +2831,25 @@ class WeChatAutomationGUI(QMainWindow):
             ))
 
             if not matches:
-                return None
+                return []
 
-            # 找到距离当前点击位置最近的下一个按钮
-            best_match = None
-            best_distance = float('inf')
-
+            # 收集匹配位置并按y排序
+            positions = []
             for m in matches:
                 center_x = m.left + m.width // 2
                 center_y = m.top + m.height // 2
-
                 # 只考虑在点击位置下方的按钮
                 if center_y <= last_y:
                     continue
+                positions.append((center_x, center_y))
 
-                # 计算距离（优先选择垂直距离近的）
-                distance = center_y - last_y
-                if distance < best_distance:
-                    best_distance = distance
-                    best_match = (center_x, center_y)
-
-            return best_match
+            # 按y从小到大排序（从上到下），去重
+            positions = sorted(set(positions), key=lambda p: (p[1], p[0]))
+            return positions
 
         except Exception as e:
             print(f"⚠️ 查找下一个点赞按钮失败: {e}")
-            return None
+            return []
 
     def closeEvent(self, event):
         """窗口关闭时清理全局热键"""
