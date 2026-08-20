@@ -1305,9 +1305,9 @@ class WeChatAutomationGUI(QMainWindow):
         offset_y_label = QLabel("兜底下滚:")
         offset_y_label.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_offset_y_spinbox = QSpinBox()
-        self.aux_like_offset_y_spinbox.setRange(0, 500)
-        self.aux_like_offset_y_spinbox.setValue(3)
-        self.aux_like_offset_y_spinbox.setSuffix(" 行")
+        self.aux_like_offset_y_spinbox.setRange(0, 5000)
+        self.aux_like_offset_y_spinbox.setValue(1000)
+        self.aux_like_offset_y_spinbox.setSuffix(" 格")
         self.aux_like_offset_y_spinbox.setFont(QFont("Microsoft YaHei", 10))
 
         delay_label = QLabel("点击间隔:")
