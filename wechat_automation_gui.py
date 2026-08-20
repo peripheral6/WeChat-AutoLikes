@@ -2746,79 +2746,40 @@ class WeChatAutomationGUI(QMainWindow):
                 # 跳过模式：不做点赞，直接进入下滚+识别下一个
                 time.sleep(STEP_DELAY)
 
-            # 6+7. 闭环滚动定位下一个点赞按钮（滚动→识别→微调，避免过量/反向）
-            PX_PER_NOTCH = 40     # 一格滚动的像素参考（一格约滚40px内容）
-            GRACE = 100           # 允许误差（到目标带即可）
-            MAX_ROLL = 40         # 单次最大滚动格数（防止过量）
-            SETTLE = 0.10         # 每次滚动后等待（给微信渲染时间）
+            # 6+7. 简单滚动逻辑：根据鼠标位置决定下滚量，滚动后识别下一个点赞按钮
             SCROLL_PAUSE = 0.04   # 鼠标移动后的短暂停顿
-            MAX_SEEK = 20         # 寻找/微调最大循环次数
+            SETTLE = 0.20         # 大滚动后等待（给微信渲染时间）
 
             screen_h = pyautogui.size().height
             center_y = int(screen_h / 2)
-            located_pos = None
 
-            # 确保鼠标在朋友圈列表中央，滚轮作用于正确区域
+            # 根据鼠标当前高度决定滚动量：屏幕上半多滚600，下半少滚400
+            if current_y < center_y:
+                scroll_amount = 600
+            else:
+                scroll_amount = 400
+
+            # 鼠标移到屏幕中线（朋友圈列表中央），滚轮作用于正确区域
             pyautogui.moveTo(current_x, center_y, duration=0)
             time.sleep(SCROLL_PAUSE)
 
-            # 第一阶段：从鼠标位置下方找"下一条"按钮（不是中线以下！）
-            # 找不到就下滚让它滚进来（闭环小步逼近）
-            base_y = current_y
-            for _ in range(MAX_SEEK):
-                positions = self._find_next_dianzan(current_x, base_y)
-                if positions:
-                    located_pos = positions[0]
-                    break
-                # 找不到：下滚一段让下一条滚进来，并把搜索基准移到中线
-                self._reliable_scroll(30)
-                time.sleep(SETTLE)
-                base_y = center_y
-                pyautogui.moveTo(current_x, center_y, duration=0)
-                time.sleep(SCROLL_PAUSE)
-                positions = self._find_next_dianzan(current_x, center_y)
-                if positions:
-                    located_pos = positions[0]
-                    break
+            # 下滚固定量
+            self._reliable_scroll(scroll_amount)
+            time.sleep(SETTLE)
 
-            # 第二阶段：闭环微调，把下一条按钮滚到屏幕中线附近（过头自动回滚）
-            if located_pos:
-                for _ in range(MAX_SEEK):
-                    nx, ny = located_pos
-                    diff = ny - center_y
-                    if abs(diff) <= GRACE:
-                        break  # 已在中线附近，到位
-                    roll = min(int(abs(diff) / PX_PER_NOTCH) + 1, MAX_ROLL)
-                    if diff > 0:
-                        # 按钮太靠下 → 向下滚
-                        self._reliable_scroll(roll)
-                    else:
-                        # 按钮太靠上（滚过头）→ 向上回滚
-                        self._reliable_scroll(-roll)
-                    time.sleep(SETTLE)
-                    pyautogui.moveTo(current_x, center_y, duration=0)
-                    time.sleep(SCROLL_PAUSE)
-                    re_positions = self._find_next_dianzan(current_x, center_y)
-                    if re_positions:
-                        located_pos = re_positions[0]
-                    else:
-                        break
-
-            if located_pos:
-                # 精确定位：重新识别下一条按钮并移动鼠标过去
-                final_positions = self._find_next_dianzan(current_x, center_y)
-                final_pos = final_positions[0] if final_positions else located_pos
-                fx, fy = final_pos
+            # 滚动后从屏幕中线以下区域识别下一个点赞按钮
+            positions = self._find_next_dianzan(current_x, center_y, below_mid=True)
+            if positions:
+                located_pos = positions[0]
+                fx, fy = located_pos
                 self.update_status(
-                    f"🎯 已定位下一个点赞按钮：({fx},{fy})",
+                    f"🎯 已定位下一个点赞按钮：({fx},{fy})（下滚{scroll_amount}格）",
                     "#2ecc71"
                 )
                 pyautogui.moveTo(fx, fy, duration=0)
                 time.sleep(STEP_DELAY)
             else:
-                # 闭环始终找不到，回退基础下滚一次后停止
-                pyautogui.moveTo(current_x, center_y, duration=0)
-                time.sleep(SCROLL_PAUSE)
+                # 识别不到，回退基础下滚一次后停止，不再无限滚
                 if offset_y != 0:
                     self._reliable_scroll(int(offset_y))
                     time.sleep(SETTLE)
