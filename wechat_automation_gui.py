@@ -35,6 +35,19 @@ except ImportError:
     PYNPUT_HOTKEY_AVAILABLE = False
     print("⚠️ pynput 模块不可用，备用全局热键监听将不可用")
 
+# Win32 API（用于比pyautogui更可靠的滚轮滚动）
+try:
+    import win32api
+    import win32con
+    import win32gui
+    WIN32_AVAILABLE = True
+except ImportError:
+    win32api = None
+    win32con = None
+    win32gui = None
+    WIN32_AVAILABLE = False
+    print("⚠️ win32 模块不可用，滚轮滚动将回退到pyautogui")
+
 # 导入OCR引擎模块（延迟初始化）
 try:
     from rapid_ocr_engine import get_ocr_engine
@@ -2754,7 +2767,7 @@ class WeChatAutomationGUI(QMainWindow):
                 pyautogui.moveTo(current_x, center_y, duration=0)
                 time.sleep(SCROLL_PAUSE)
                 if offset_y > 0:
-                    pyautogui.scroll(-int(offset_y))
+                    self._reliable_scroll(int(offset_y))
                     # 大滚动后等待足够时间，让微信完成滚动
                     time.sleep(SCROLL_SETTLE)
                 # 鼠标已在中线，直接从中线以下固定区域识别
@@ -2770,7 +2783,7 @@ class WeChatAutomationGUI(QMainWindow):
                         break  # 已在中上部，到位
                     # 按钮还在屏幕中下部，一次性大量下滚使其上移（按偏差换算格数，保证足够）
                     roll = max(5, int((ny - center_y) / PX_PER_NOTCH) + 1)
-                    pyautogui.scroll(-roll)
+                    self._reliable_scroll(roll)
                     time.sleep(SCROLL_PAUSE)
                     # 滚动后鼠标跟随下移到中线，重新从中线以下识别
                     pyautogui.moveTo(current_x, center_y, duration=0)
@@ -2797,7 +2810,7 @@ class WeChatAutomationGUI(QMainWindow):
                 pyautogui.moveTo(current_x, center_y, duration=0)
                 time.sleep(SCROLL_PAUSE)
                 if offset_y != 0:
-                    pyautogui.scroll(-int(offset_y))
+                    self._reliable_scroll(int(offset_y))
                     time.sleep(SCROLL_SETTLE)
                 self.update_status(
                     f"ℹ️ 未检测到下一个点赞按钮，已按基础下滚{offset_y}行",
@@ -2868,6 +2881,39 @@ class WeChatAutomationGUI(QMainWindow):
         except Exception as e:
             print(f"⚠️ 查找下一个点赞按钮失败: {e}")
             return []
+
+    def _reliable_scroll(self, notches):
+        """可靠地向下滚动指定格数。
+        用 win32 逐个发送滚轮 tick（每格120），避免 pyautogui.scroll 单次大值被系统丢弃。
+        notches>0 向下滚动，notches<0 向上滚动。"""
+        try:
+            if notches == 0:
+                return
+            direction = -1 if notches < 0 else 1
+            count = abs(int(notches))
+            # 限制单次调用最大格数，防止一次过多
+            count = min(count, 2000)
+
+            if WIN32_AVAILABLE and win32api is not None:
+                delta = 120 * direction
+                # 分批发送滚轮tick，每批稍作停顿确保系统处理
+                batch = 100
+                sent = 0
+                while sent < count:
+                    chunk = min(batch, count - sent)
+                    for _ in range(chunk):
+                        win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
+                    sent += chunk
+                    time.sleep(0.01)
+            else:
+                # win32不可用时回退到pyautogui
+                pyautogui.scroll(-notches)
+        except Exception as e:
+            print(f"⚠️ win32滚动失败，回退pyautogui: {e}")
+            try:
+                pyautogui.scroll(-notches)
+            except Exception:
+                pass
 
     def closeEvent(self, event):
         """窗口关闭时清理全局热键"""
