@@ -2893,6 +2893,8 @@ class WeChatAutomationGUI(QMainWindow):
             # notches>0（向下）→ delta负；notches<0（向上）→ delta正。
             direction = 1 if notches < 0 else -1
             count = abs(int(notches))
+            # 减少60%滚动量（保留40%）
+            count = max(1, int(count * 0.4))
             # 限制单次调用最大格数，防止一次过多
             count = min(count, 2000)
 
