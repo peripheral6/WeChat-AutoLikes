@@ -2649,6 +2649,14 @@ class WeChatAutomationGUI(QMainWindow):
             offset_y = self.aux_like_offset_y_spinbox.value()
             delay_ms = self.aux_like_delay_spinbox.value()
 
+            # 临时关闭PyAutoGUI全局延时，确保执行极快
+            original_pause = pyautogui.PAUSE
+            original_min_duration = getattr(pyautogui, 'MINIMUM_DURATION', 0.0)
+            original_min_sleep = getattr(pyautogui, 'MINIMUM_SLEEP', 0.0)
+            pyautogui.PAUSE = 0
+            pyautogui.MINIMUM_DURATION = 0
+            pyautogui.MINIMUM_SLEEP = 0
+
             current_pos = pyautogui.position()
             target_x = current_pos.x + offset_x
             target_y = current_pos.y + offset_y
@@ -2664,8 +2672,16 @@ class WeChatAutomationGUI(QMainWindow):
                 time.sleep(delay_ms / 1000.0)
             pyautogui.click(target_x, target_y)
 
+            # 执行完成后将鼠标移回原始位置，避免影响后续操作
+            pyautogui.moveTo(current_pos.x, current_pos.y, duration=0)
+
         except Exception as e:
             self.update_status(f"❌ 辅助点赞执行失败: {e}", "#f44336")
+        finally:
+            # 恢复PyAutoGUI全局设置
+            pyautogui.PAUSE = original_pause
+            pyautogui.MINIMUM_DURATION = original_min_duration
+            pyautogui.MINIMUM_SLEEP = original_min_sleep
 
     def closeEvent(self, event):
         """窗口关闭时清理全局热键"""
