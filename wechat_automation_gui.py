@@ -1281,7 +1281,7 @@ class WeChatAutomationGUI(QMainWindow):
 
         self.aux_like_enable_checkbox = QCheckBox("启用F10辅助点赞（每按一次F10仅执行一次）")
         self.aux_like_enable_checkbox.setFont(QFont("Microsoft YaHei", 10))
-        self.aux_like_enable_checkbox.setToolTip("启用后按F10会在当前鼠标位置点击一次，再在偏移位置点击一次")
+        self.aux_like_enable_checkbox.setToolTip("启用后按F10会在当前鼠标位置点击一次，然后移回原位并按垂直偏移滚动")
         self.aux_like_enable_checkbox.stateChanged.connect(self.on_aux_like_hotkey_changed)
         helper_layout.addWidget(self.aux_like_enable_checkbox)
 
@@ -1296,12 +1296,12 @@ class WeChatAutomationGUI(QMainWindow):
         self.aux_like_offset_x_spinbox.setSuffix(" px")
         self.aux_like_offset_x_spinbox.setFont(QFont("Microsoft YaHei", 10))
 
-        offset_y_label = QLabel("垂直偏移:")
+        offset_y_label = QLabel("下滚行数:")
         offset_y_label.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_offset_y_spinbox = QSpinBox()
         self.aux_like_offset_y_spinbox.setRange(-500, 500)
         self.aux_like_offset_y_spinbox.setValue(0)
-        self.aux_like_offset_y_spinbox.setSuffix(" px")
+        self.aux_like_offset_y_spinbox.setSuffix(" 行")
         self.aux_like_offset_y_spinbox.setFont(QFont("Microsoft YaHei", 10))
 
         delay_label = QLabel("两次点击间隔:")
@@ -1315,7 +1315,7 @@ class WeChatAutomationGUI(QMainWindow):
         self.aux_like_test_btn = ModernButton("测试执行一次", "secondary")
         self.aux_like_test_btn.setFixedSize(130, 42)
         self.aux_like_test_btn.clicked.connect(self.execute_aux_like_once)
-        self.aux_like_test_btn.setToolTip("立即执行一次辅助点赞动作（当前点 + 偏移点）")
+        self.aux_like_test_btn.setToolTip("立即执行一次辅助点赞动作（点击当前位置后，移回并下滚）")
 
         helper_config_layout.addWidget(offset_x_label)
         helper_config_layout.addWidget(self.aux_like_offset_x_spinbox)
@@ -1328,7 +1328,7 @@ class WeChatAutomationGUI(QMainWindow):
 
         helper_layout.addLayout(helper_config_layout)
 
-        helper_hint = QLabel("说明：F10 触发后仅执行一次，先点击当前鼠标位置，再点击偏移位置（可用于快速辅助点赞）")
+        helper_hint = QLabel("说明：F10 触发后仅执行一次，先点击当前鼠标位置，再移回原位，最后按设置下滚指定行数")
         helper_hint.setFont(QFont("Microsoft YaHei", 9))
         helper_hint.setStyleSheet("color: #666666;")
         helper_layout.addWidget(helper_hint)
@@ -2659,21 +2659,23 @@ class WeChatAutomationGUI(QMainWindow):
 
             current_pos = pyautogui.position()
             target_x = current_pos.x + offset_x
-            target_y = current_pos.y + offset_y
 
             trigger_source = "F10" if from_hotkey else "测试按钮"
             self.update_status(
-                f"🖱️ 辅助点赞({trigger_source})：先点({current_pos.x},{current_pos.y})，再点({target_x},{target_y})",
+                f"🖱️ 辅助点赞({trigger_source})：点({current_pos.x},{current_pos.y})，移回后下滚{offset_y}行",
                 "#FF69B4"
             )
 
             pyautogui.click(current_pos.x, current_pos.y)
             if delay_ms > 0:
                 time.sleep(delay_ms / 1000.0)
-            pyautogui.click(target_x, target_y)
 
-            # 执行完成后将鼠标移回原始位置，避免影响后续操作
+            # 移回原始位置
             pyautogui.moveTo(current_pos.x, current_pos.y, duration=0)
+
+            # 根据垂直偏移滚动（负值向下，正值向上）
+            if offset_y != 0:
+                pyautogui.scroll(-int(offset_y))
 
         except Exception as e:
             self.update_status(f"❌ 辅助点赞执行失败: {e}", "#f44336")
