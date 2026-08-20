@@ -1300,7 +1300,7 @@ class WeChatAutomationGUI(QMainWindow):
         delay_label.setFont(QFont("Microsoft YaHei", 10))
         self.aux_like_delay_spinbox = QSpinBox()
         self.aux_like_delay_spinbox.setRange(0, 2000)
-        self.aux_like_delay_spinbox.setValue(100)
+        self.aux_like_delay_spinbox.setValue(200)
         self.aux_like_delay_spinbox.setSuffix(" ms")
         self.aux_like_delay_spinbox.setFont(QFont("Microsoft YaHei", 10))
 

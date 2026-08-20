@@ -17,6 +17,6 @@
     "enable_window_resize": true,
     "aux_like_hotkey_enabled": true,
     "aux_like_offset_y": 3,
-    "aux_like_delay_ms": 100
+    "aux_like_delay_ms": 200
   }
 }
