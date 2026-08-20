@@ -333,7 +333,7 @@ class WeChatAutomationGUI(QMainWindow):
     """微信自动化工具主界面"""
     # 定义信号，用于从worker线程安全地更新UI
     status_updated = pyqtSignal(str, str)  # (message, color)
-    aux_like_triggered = pyqtSignal(bool)
+    aux_like_triggered = pyqtSignal(bool, bool)  # (from_hotkey, skip)
     
     def __init__(self):
         super().__init__()
@@ -343,7 +343,7 @@ class WeChatAutomationGUI(QMainWindow):
         self._stop_broadcast = False  # 停止群发消息标志
         self._stop_moments = False  # 停止朋友圈操作标志
         self._aux_like_hotkey_registered = False
-        self._aux_like_hotkey_id = None
+        self._aux_like_hotkey_ids = []
         self._aux_like_pynput_listener = None
         self._aux_like_pynput_registered = False
         self._aux_like_last_trigger_time = 0.0
@@ -355,10 +355,16 @@ class WeChatAutomationGUI(QMainWindow):
         self.status_updated.connect(self.update_status_impl)
         self.aux_like_triggered.connect(self.execute_aux_like_once)
 
-        # 兜底：窗口内F10快捷键（当程序窗口有焦点时可用）
+        # 兜底：窗口内F10/方向右键快捷键（当程序窗口有焦点时可用）
         self.aux_like_shortcut = QShortcut(QKeySequence("F10"), self)
         self.aux_like_shortcut.setContext(Qt.ApplicationShortcut)
-        self.aux_like_shortcut.activated.connect(lambda: self.aux_like_triggered.emit(True))
+        self.aux_like_shortcut.activated.connect(lambda: self.aux_like_triggered.emit(True, False))
+        self.aux_like_skip_shortcut = QShortcut(QKeySequence(Qt.Key_Right), self)
+        self.aux_like_skip_shortcut.setContext(Qt.ApplicationShortcut)
+        self.aux_like_skip_shortcut.activated.connect(lambda: self.aux_like_triggered.emit(True, False))
+        self.aux_like_skip_down_shortcut = QShortcut(QKeySequence(Qt.Key_Down), self)
+        self.aux_like_skip_down_shortcut.setContext(Qt.ApplicationShortcut)
+        self.aux_like_skip_down_shortcut.activated.connect(lambda: self.aux_like_triggered.emit(True, True))
         # 加载上次的输入内容（需要在UI创建后调用）
         self.load_last_inputs()
         # 连接实时保存信号（在加载输入内容之后连接）
@@ -1279,9 +1285,9 @@ class WeChatAutomationGUI(QMainWindow):
         helper_layout = QVBoxLayout(helper_group)
         helper_layout.setSpacing(12)
 
-        self.aux_like_enable_checkbox = QCheckBox("启用F10辅助点赞（每按一次F10仅执行一次）")
+        self.aux_like_enable_checkbox = QCheckBox("启用辅助点赞热键（F10/方向右键=点赞，方向下键=跳过）")
         self.aux_like_enable_checkbox.setFont(QFont("Microsoft YaHei", 10))
-        self.aux_like_enable_checkbox.setToolTip("启用后按F10会在当前鼠标位置点击一次，然后移回原位并按垂直偏移滚动")
+        self.aux_like_enable_checkbox.setToolTip("方向右键/F10：点赞当前朋友圈并定位下一个；方向下键：跳过当前条，直接定位下一个")
         self.aux_like_enable_checkbox.stateChanged.connect(self.on_aux_like_hotkey_changed)
         helper_layout.addWidget(self.aux_like_enable_checkbox)
 
@@ -1328,7 +1334,7 @@ class WeChatAutomationGUI(QMainWindow):
 
         helper_layout.addLayout(helper_config_layout)
 
-        helper_hint = QLabel("说明：F10 触发后：点击当前位置 → 左移 → 间隔后点击 → 移回 → 下滚 → 自动定位下一个点赞按钮")
+        helper_hint = QLabel("说明：方向右键/F10 点赞当前条（点击→左移→点击→移回→下滚→定位下一个）；方向下键 跳过当前条直接定位下一个")
         helper_hint.setFont(QFont("Microsoft YaHei", 9))
         helper_hint.setStyleSheet("color: #666666;")
         helper_layout.addWidget(helper_hint)
@@ -2549,7 +2555,7 @@ class WeChatAutomationGUI(QMainWindow):
             self._switching_type = False
 
     def on_aux_like_hotkey_changed(self, state):
-        """启用/禁用F10辅助点赞热键"""
+        """启用/禁用辅助点赞热键（F10/方向右键=点赞，方向下键=跳过）"""
         enabled = (state == 2)
 
         if enabled:
@@ -2559,20 +2565,34 @@ class WeChatAutomationGUI(QMainWindow):
             # 先尝试 keyboard 库
             try:
                 if KEYBOARD_HOTKEY_AVAILABLE:
-                    if self._aux_like_hotkey_registered and self._aux_like_hotkey_id is not None:
-                        keyboard_hotkey.remove_hotkey(self._aux_like_hotkey_id)
-
-                    self._aux_like_hotkey_id = keyboard_hotkey.add_hotkey(
+                    self._remove_keyboard_hotkeys()
+                    self._aux_like_hotkey_ids = []
+                    # F10 辅助点赞
+                    self._aux_like_hotkey_ids.append(keyboard_hotkey.add_hotkey(
                         'f10',
-                        lambda: self.aux_like_triggered.emit(True),
+                        lambda: self.aux_like_triggered.emit(True, False),
                         suppress=False,
                         trigger_on_release=True
-                    )
+                    ))
+                    # 方向右键 辅助点赞
+                    self._aux_like_hotkey_ids.append(keyboard_hotkey.add_hotkey(
+                        'right',
+                        lambda: self.aux_like_triggered.emit(True, False),
+                        suppress=False,
+                        trigger_on_release=True
+                    ))
+                    # 方向下键 跳过点赞
+                    self._aux_like_hotkey_ids.append(keyboard_hotkey.add_hotkey(
+                        'down',
+                        lambda: self.aux_like_triggered.emit(True, True),
+                        suppress=False,
+                        trigger_on_release=True
+                    ))
                     self._aux_like_hotkey_registered = True
                     keyboard_ok = True
             except Exception as e:
                 self._aux_like_hotkey_registered = False
-                self._aux_like_hotkey_id = None
+                self._aux_like_hotkey_ids = []
                 self.update_status(f"⚠️ keyboard热键注册失败: {e}", "#FF69B4")
 
             # 再尝试 pynput 备用监听
@@ -2587,8 +2607,10 @@ class WeChatAutomationGUI(QMainWindow):
 
                     def _on_press(key):
                         try:
-                            if key == pynput_keyboard.Key.f10:
-                                self.aux_like_triggered.emit(True)
+                            if key == pynput_keyboard.Key.f10 or key == pynput_keyboard.Key.right:
+                                self.aux_like_triggered.emit(True, False)
+                            elif key == pynput_keyboard.Key.down:
+                                self.aux_like_triggered.emit(True, True)
                         except Exception:
                             pass
 
@@ -2608,18 +2630,15 @@ class WeChatAutomationGUI(QMainWindow):
                     engines.append("keyboard")
                 if pynput_ok:
                     engines.append("pynput")
-                self.update_status(f"✅ 已启用辅助点赞热键：F10（引擎: {', '.join(engines)}）", "#FF69B4")
+                self.update_status(f"✅ 已启用辅助点赞热键：F10/方向右键=点赞，方向下键=跳过（引擎: {', '.join(engines)}）", "#FF69B4")
             else:
-                self.update_status("❌ 启用F10热键失败：全局监听不可用", "#f44336")
+                self.update_status("❌ 启用辅助点赞热键失败：全局监听不可用", "#f44336")
                 self.aux_like_enable_checkbox.blockSignals(True)
                 self.aux_like_enable_checkbox.setChecked(False)
                 self.aux_like_enable_checkbox.blockSignals(False)
         else:
             try:
-                if self._aux_like_hotkey_registered and self._aux_like_hotkey_id is not None:
-                    keyboard_hotkey.remove_hotkey(self._aux_like_hotkey_id)
-                self._aux_like_hotkey_registered = False
-                self._aux_like_hotkey_id = None
+                self._remove_keyboard_hotkeys()
 
                 if self._aux_like_pynput_listener is not None:
                     try:
@@ -2633,8 +2652,23 @@ class WeChatAutomationGUI(QMainWindow):
             except Exception as e:
                 self.update_status(f"⚠️ 关闭F10热键时出现问题: {e}", "#FF69B4")
 
-    def execute_aux_like_once(self, from_hotkey=False):
-        """执行一次辅助点赞动作：点击 -> 左移 -> 点击 -> 移回 -> 下滚 -> 定位下一个"""
+    def _remove_keyboard_hotkeys(self):
+        """移除所有已注册的keyboard全局热键"""
+        try:
+            if self._aux_like_hotkey_registered and KEYBOARD_HOTKEY_AVAILABLE:
+                for hid in (self._aux_like_hotkey_ids or []):
+                    try:
+                        keyboard_hotkey.remove_hotkey(hid)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        self._aux_like_hotkey_registered = False
+        self._aux_like_hotkey_ids = []
+
+    def execute_aux_like_once(self, from_hotkey=False, skip=False):
+        """执行一次辅助点赞动作：点赞（点击->左移->点击->移回）或跳过，再 下滚 -> 定位下一个。
+        skip=True 时跳过点赞步骤，直接下滚并定位下一个点赞按钮。"""
         if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
             return
 
@@ -2666,32 +2700,38 @@ class WeChatAutomationGUI(QMainWindow):
 
             STEP_DELAY = 0.02  # 每步操作之间的延迟（20ms），避免操作过快点不上
 
-            trigger_source = "F10" if from_hotkey else "测试按钮"
+            trigger_source = "右/F10" if from_hotkey else "测试按钮"
+            action_name = "跳过" if skip else "点赞"
             self.update_status(
-                f"🖱️ 辅助点赞({trigger_source})：点击({current_x},{current_y}) 开始",
+                f"🖱️ 辅助{action_name}({trigger_source})：位置({current_x},{current_y})",
                 "#FF69B4"
             )
 
-            # 1. 点击当前鼠标位置
-            pyautogui.click(current_x, current_y)
-            time.sleep(STEP_DELAY)
+            # 若非跳过模式，执行点赞五步：点击 -> 左移 -> 点击 -> 移回
+            if not skip:
+                # 1. 点击当前鼠标位置
+                pyautogui.click(current_x, current_y)
+                time.sleep(STEP_DELAY)
 
-            # 2. 移到左边（点赞按钮位置）
-            pyautogui.moveTo(like_x, like_y, duration=0)
-            time.sleep(STEP_DELAY)
+                # 2. 移到左边（点赞按钮位置）
+                pyautogui.moveTo(like_x, like_y, duration=0)
+                time.sleep(STEP_DELAY)
 
-            # 3. 等待间隔时间
-            if delay_ms > 0:
-                time.sleep(delay_ms / 1000.0)
-            time.sleep(STEP_DELAY)
+                # 3. 等待间隔时间
+                if delay_ms > 0:
+                    time.sleep(delay_ms / 1000.0)
+                time.sleep(STEP_DELAY)
 
-            # 4. 点击（点赞）
-            pyautogui.click(like_x, like_y)
-            time.sleep(STEP_DELAY)
+                # 4. 点击（点赞）
+                pyautogui.click(like_x, like_y)
+                time.sleep(STEP_DELAY)
 
-            # 5. 移回来
-            pyautogui.moveTo(current_x, current_y, duration=0)
-            time.sleep(STEP_DELAY)
+                # 5. 移回来
+                pyautogui.moveTo(current_x, current_y, duration=0)
+                time.sleep(STEP_DELAY)
+            else:
+                # 跳过模式：不做点赞，直接进入下滚+识别下一个
+                time.sleep(STEP_DELAY)
 
             # 6. 向下滚动行数（offset_y为正时向下滚动）
             if offset_y != 0:
@@ -2774,10 +2814,7 @@ class WeChatAutomationGUI(QMainWindow):
     def closeEvent(self, event):
         """窗口关闭时清理全局热键"""
         try:
-            if self._aux_like_hotkey_registered and self._aux_like_hotkey_id is not None and KEYBOARD_HOTKEY_AVAILABLE:
-                keyboard_hotkey.remove_hotkey(self._aux_like_hotkey_id)
-                self._aux_like_hotkey_registered = False
-                self._aux_like_hotkey_id = None
+            self._remove_keyboard_hotkeys()
 
             if self._aux_like_pynput_listener is not None:
                 try:
