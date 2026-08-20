@@ -2664,6 +2664,8 @@ class WeChatAutomationGUI(QMainWindow):
             like_x = current_x + offset_x
             like_y = current_y
 
+            STEP_DELAY = 0.02  # 每步操作之间的延迟（20ms），避免操作过快点不上
+
             trigger_source = "F10" if from_hotkey else "测试按钮"
             self.update_status(
                 f"🖱️ 辅助点赞({trigger_source})：点击({current_x},{current_y}) 开始",
@@ -2672,24 +2674,29 @@ class WeChatAutomationGUI(QMainWindow):
 
             # 1. 点击当前鼠标位置
             pyautogui.click(current_x, current_y)
+            time.sleep(STEP_DELAY)
 
             # 2. 移到左边（点赞按钮位置）
             pyautogui.moveTo(like_x, like_y, duration=0)
+            time.sleep(STEP_DELAY)
 
             # 3. 等待间隔时间
             if delay_ms > 0:
                 time.sleep(delay_ms / 1000.0)
+            time.sleep(STEP_DELAY)
 
             # 4. 点击（点赞）
             pyautogui.click(like_x, like_y)
+            time.sleep(STEP_DELAY)
 
             # 5. 移回来
             pyautogui.moveTo(current_x, current_y, duration=0)
+            time.sleep(STEP_DELAY)
 
             # 6. 向下滚动行数（offset_y为正时向下滚动）
             if offset_y != 0:
                 pyautogui.scroll(-int(offset_y))
-                time.sleep(delay_ms / 1000.0 if delay_ms > 0 else 0.1)
+                time.sleep(max(STEP_DELAY, delay_ms / 1000.0 if delay_ms > 0 else STEP_DELAY))
 
             # 7. 自动识别下一个点赞按钮，移动鼠标过去（为下次F10做准备）
             next_position = self._find_next_dianzan(current_x, current_y)
@@ -2700,6 +2707,7 @@ class WeChatAutomationGUI(QMainWindow):
                     "#2ecc71"
                 )
                 pyautogui.moveTo(next_x, next_y, duration=0)
+                time.sleep(STEP_DELAY)
             else:
                 self.update_status(
                     f"ℹ️ 未检测到下一个点赞按钮，鼠标留在当前滚动位置",
