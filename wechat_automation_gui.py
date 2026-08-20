@@ -2786,7 +2786,7 @@ class WeChatAutomationGUI(QMainWindow):
 
             # 6+7. 简单滚动逻辑：根据鼠标位置决定下滚量，滚动后识别下一个点赞按钮
             SCROLL_PAUSE = 0.04   # 鼠标移动后的短暂停顿
-            SETTLE = 0.20         # 大滚动后等待（给微信渲染时间）
+            SETTLE = 0.25         # 大滚动后等待（给微信渲染时间，含50ms余量确保滚完）
 
             screen_h = pyautogui.size().height
             center_y = int(screen_h / 2)
@@ -2810,7 +2810,8 @@ class WeChatAutomationGUI(QMainWindow):
 
             # 下滚固定量
             self._reliable_scroll(scroll_amount)
-            time.sleep(SETTLE)
+            # 滚动后多等50ms，确保微信滚完再识别（否则识别时内容还在动会误判又下滚）
+            time.sleep(SETTLE + 0.05)
 
             # 滚动后从屏幕中线以下区域识别下一个点赞按钮
             positions = self._find_next_dianzan(current_x, center_y, below_mid=True)
