@@ -18,8 +18,8 @@
     "aux_like_hotkey_enabled": true,
     "aux_like_offset_x": -240,
     "aux_like_offset_y": 200,
-    "aux_like_scroll_up": 600,
-    "aux_like_scroll_down": 400,
+    "aux_like_scroll_up": 30,
+    "aux_like_scroll_down": 15,
     "aux_like_delay_ms": 200
   }
 }
