@@ -48,6 +48,180 @@ except ImportError:
     WIN32_AVAILABLE = False
     print("⚠️ win32 模块不可用，滚轮滚动将回退到pyautogui")
 
+# ---------------------------------------------------------------------------
+# 鼠标按键全局热键（低层鼠标钩子 WH_MOUSE_LL）
+# 左键 = 方向右键（点赞），右键 = 方向下键（跳过）
+# 只处理"真实"点击（忽略 pyautogui 模拟出来的注入事件），并且点击本程序
+# 自己的窗口时一律放行 —— 保证开关打开后还能用鼠标把开关关掉。
+# 触发的那一次点击（含随后的抬起）会被吞掉，微信收不到，避免右键弹出菜单。
+# ---------------------------------------------------------------------------
+MOUSE_HOOK_AVAILABLE = False
+try:
+    import ctypes
+    from ctypes import wintypes
+
+    _user32 = ctypes.windll.user32
+    _kernel32 = ctypes.windll.kernel32
+
+    _WH_MOUSE_LL = 14
+    _HC_ACTION = 0
+    _WM_LBUTTONDOWN = 0x0201
+    _WM_LBUTTONUP = 0x0202
+    _WM_RBUTTONDOWN = 0x0204
+    _WM_RBUTTONUP = 0x0205
+    _WM_QUIT = 0x0012
+    _LLMHF_INJECTED = 0x00000001
+    _GA_ROOT = 2
+
+    class _MSLLHOOKSTRUCT(ctypes.Structure):
+        _fields_ = [
+            ('pt', wintypes.POINT),
+            ('mouseData', wintypes.DWORD),
+            ('flags', wintypes.DWORD),
+            ('time', wintypes.DWORD),
+            ('dwExtraInfo', ctypes.c_void_p),
+        ]
+
+    class _MSG(ctypes.Structure):
+        _fields_ = [
+            ('hwnd', wintypes.HWND),
+            ('message', wintypes.UINT),
+            ('wParam', wintypes.WPARAM),
+            ('lParam', wintypes.LPARAM),
+            ('time', wintypes.DWORD),
+            ('pt', wintypes.POINT),
+        ]
+
+    _HOOKPROC = ctypes.WINFUNCTYPE(
+        ctypes.c_ssize_t, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+
+    _user32.SetWindowsHookExW.restype = wintypes.HHOOK
+    _user32.SetWindowsHookExW.argtypes = (
+        ctypes.c_int, _HOOKPROC, wintypes.HINSTANCE, wintypes.DWORD)
+    _user32.CallNextHookEx.restype = ctypes.c_ssize_t
+    _user32.CallNextHookEx.argtypes = (
+        wintypes.HHOOK, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
+    _user32.UnhookWindowsHookEx.restype = wintypes.BOOL
+    _user32.UnhookWindowsHookEx.argtypes = (wintypes.HHOOK,)
+    _user32.GetMessageW.argtypes = (
+        ctypes.POINTER(_MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT)
+    _user32.PostThreadMessageW.argtypes = (
+        wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+    _user32.WindowFromPoint.restype = wintypes.HWND
+    _user32.WindowFromPoint.argtypes = (wintypes.POINT,)
+    _user32.GetAncestor.restype = wintypes.HWND
+    _user32.GetAncestor.argtypes = (wintypes.HWND, wintypes.UINT)
+    _user32.GetWindowThreadProcessId.argtypes = (
+        wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
+    MOUSE_HOOK_AVAILABLE = True
+except Exception as _mouse_hook_err:
+    print(f"⚠️ 鼠标低层钩子不可用: {_mouse_hook_err}")
+    MOUSE_HOOK_AVAILABLE = False
+
+
+class MouseButtonHotkeyHook:
+    """把鼠标左/右键当热键用的低层鼠标钩子。"""
+
+    def __init__(self, is_active, on_trigger, own_pid=None):
+        #: 无参回调，返回 True 表示当前真的要处理点击
+        self._is_active = is_active
+        #: on_trigger(skip) —— skip=True 代表右键（跳过）
+        self._on_trigger = on_trigger
+        self._own_pid = os.getpid() if own_pid is None else own_pid
+        self._thread = None
+        self._thread_id = 0
+        self._hook = None
+        self._swallow_up = None          # 'left' / 'right' / None
+        self._ready = threading.Event()
+        # 必须保持对回调的引用，否则被GC回收后钩子会崩溃
+        self._proc = _HOOKPROC(self._hook_proc) if MOUSE_HOOK_AVAILABLE else None
+
+    @property
+    def running(self):
+        return self._thread is not None and self._thread.is_alive()
+
+    def start(self):
+        if not MOUSE_HOOK_AVAILABLE:
+            return False
+        if self.running:
+            return True
+        self._ready.clear()
+        self._thread = threading.Thread(
+            target=self._run, name='mouse-hotkey-hook', daemon=True)
+        self._thread.start()
+        self._ready.wait(timeout=2.0)
+        return self._hook is not None and self._hook != 0
+
+    def stop(self):
+        thread, tid = self._thread, self._thread_id
+        self._thread, self._thread_id = None, 0
+        if tid:
+            try:
+                _user32.PostThreadMessageW(tid, _WM_QUIT, 0, 0)
+            except Exception:
+                pass
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=1.5)
+        self._hook = None
+
+    def _run(self):
+        self._thread_id = _kernel32.GetCurrentThreadId()
+        try:
+            self._hook = _user32.SetWindowsHookExW(_WH_MOUSE_LL, self._proc, None, 0)
+        except Exception:
+            self._hook = None
+        self._ready.set()
+        if not self._hook:
+            return
+        msg = _MSG()
+        while _user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+            _user32.TranslateMessage(ctypes.byref(msg))
+            _user32.DispatchMessageW(ctypes.byref(msg))
+        try:
+            _user32.UnhookWindowsHookEx(self._hook)
+        except Exception:
+            pass
+        self._hook = None
+
+    def _points_to_own_window(self, x, y):
+        """光标下面是本程序自己的窗口吗（是的话点击要放行）"""
+        try:
+            hwnd = _user32.WindowFromPoint(wintypes.POINT(int(x), int(y)))
+            if not hwnd:
+                return False
+            root = _user32.GetAncestor(hwnd, _GA_ROOT) or hwnd
+            pid = wintypes.DWORD(0)
+            _user32.GetWindowThreadProcessId(root, ctypes.byref(pid))
+            return pid.value == self._own_pid
+        except Exception:
+            return False
+
+    def _hook_proc(self, n_code, w_param, l_param):
+        try:
+            if n_code == _HC_ACTION:
+                info = ctypes.cast(
+                    ctypes.c_void_p(l_param),
+                    ctypes.POINTER(_MSLLHOOKSTRUCT)).contents
+                # 忽略自身模拟出来的点击（pyautogui 点的赞），否则会无限递归
+                if not (info.flags & _LLMHF_INJECTED):
+                    if w_param in (_WM_LBUTTONDOWN, _WM_RBUTTONDOWN):
+                        self._swallow_up = None
+                        if self._is_active() and not self._points_to_own_window(
+                                info.pt.x, info.pt.y):
+                            skip = (w_param == _WM_RBUTTONDOWN)
+                            self._swallow_up = 'right' if skip else 'left'
+                            self._on_trigger(skip)
+                            return 1  # 吞掉这次按下
+                    elif w_param in (_WM_LBUTTONUP, _WM_RBUTTONUP):
+                        btn = 'left' if w_param == _WM_LBUTTONUP else 'right'
+                        if self._swallow_up == btn:
+                            self._swallow_up = None
+                            return 1  # 连抬起一起吞掉
+        except Exception:
+            pass
+        return _user32.CallNextHookEx(None, n_code, w_param, l_param)
+
+
 # 导入OCR引擎模块（延迟初始化）
 try:
     from rapid_ocr_engine import get_ocr_engine
@@ -361,6 +535,9 @@ class WeChatAutomationGUI(QMainWindow):
         self._aux_like_pynput_registered = False
         self._aux_like_last_trigger_time = 0.0
         self._aux_like_lock = threading.Lock()
+        self._aux_like_active_flag = False   # 给鼠标钩子线程读的启用标志（普通bool，跨线程读安全）
+        self._aux_like_busy = False          # 辅助点赞动作执行中（鼠标钩子据此忽略自身模拟的点击）
+        self._mouse_hotkey_hook = None       # 鼠标按键热键（左键=点赞，右键=跳过）
         self.init_ui()
         # 初始化OCR引擎（延迟加载，但需要在GUI启动时触发）
         _init_gui_ocr_engines()
@@ -1304,6 +1481,16 @@ class WeChatAutomationGUI(QMainWindow):
         self.aux_like_enable_checkbox.stateChanged.connect(self.on_aux_like_hotkey_changed)
         helper_layout.addWidget(self.aux_like_enable_checkbox)
 
+        self.aux_like_mouse_hotkey_checkbox = QCheckBox("启用鼠标按键热键（鼠标左键=点赞，鼠标右键=跳过）")
+        self.aux_like_mouse_hotkey_checkbox.setFont(QFont("Microsoft YaHei", 10))
+        self.aux_like_mouse_hotkey_checkbox.setToolTip(
+            "开启后：鼠标左键 = 方向右键（点赞当前条并定位下一条）；鼠标右键 = 方向下键（跳过当前条）。\n"
+            "这两次点击会被吞掉，微信本身收不到，所以不会弹出右键菜单。\n"
+            "点击本程序窗口内仍然正常，可以随时把开关关掉。\n"
+            "需要同时勾选上面的“启用辅助点赞热键”才会真正动作。")
+        self.aux_like_mouse_hotkey_checkbox.stateChanged.connect(self.on_aux_mouse_hotkey_changed)
+        helper_layout.addWidget(self.aux_like_mouse_hotkey_checkbox)
+
         helper_config_layout = QHBoxLayout()
         helper_config_layout.setSpacing(10)
 
@@ -2226,6 +2413,9 @@ class WeChatAutomationGUI(QMainWindow):
             if hasattr(self, 'aux_like_enable_checkbox'):
                 self.aux_like_enable_checkbox.stateChanged.connect(self.save_last_inputs)
 
+            if hasattr(self, 'aux_like_mouse_hotkey_checkbox'):
+                self.aux_like_mouse_hotkey_checkbox.stateChanged.connect(self.save_last_inputs)
+
             if hasattr(self, 'aux_like_offset_x_spinbox'):
                 self.aux_like_offset_x_spinbox.valueChanged.connect(self.save_last_inputs)
 
@@ -2340,6 +2530,9 @@ class WeChatAutomationGUI(QMainWindow):
             # 保存辅助点赞设置
             if hasattr(self, 'aux_like_enable_checkbox'):
                 config['last_inputs']['aux_like_hotkey_enabled'] = self.aux_like_enable_checkbox.isChecked()
+
+            if hasattr(self, 'aux_like_mouse_hotkey_checkbox'):
+                config['last_inputs']['aux_like_mouse_hotkey'] = self.aux_like_mouse_hotkey_checkbox.isChecked()
 
             if hasattr(self, 'aux_like_offset_x_spinbox'):
                 config['last_inputs']['aux_like_offset_x'] = self.aux_like_offset_x_spinbox.value()
@@ -2554,6 +2747,11 @@ class WeChatAutomationGUI(QMainWindow):
                 self.aux_like_enable_checkbox.setChecked(enabled)
                 # load阶段信号可能尚未连接，主动同步一次热键状态
                 self.on_aux_like_hotkey_changed(2 if enabled else 0)
+
+            if hasattr(self, 'aux_like_mouse_hotkey_checkbox'):
+                mouse_enabled = last_inputs.get('aux_like_mouse_hotkey', False)
+                self.aux_like_mouse_hotkey_checkbox.setChecked(mouse_enabled)
+                self.on_aux_mouse_hotkey_changed(2 if mouse_enabled else 0)
                 
         except Exception as e:
             print(f"加载输入内容失败: {e}")
@@ -2608,6 +2806,7 @@ class WeChatAutomationGUI(QMainWindow):
     def on_aux_like_hotkey_changed(self, state):
         """启用/禁用辅助点赞热键（F10/方向右键=点赞，方向下键=跳过）"""
         enabled = (state == 2)
+        self._aux_like_active_flag = enabled  # 鼠标钩子线程读这个标志
 
         if enabled:
             keyboard_ok = False
@@ -2715,6 +2914,52 @@ class WeChatAutomationGUI(QMainWindow):
             except Exception as e:
                 self.update_status(f"⚠️ 关闭F10热键时出现问题: {e}", "#FF69B4")
 
+    def on_aux_mouse_hotkey_changed(self, state):
+        """启用/禁用鼠标按键热键（左键=方向右键点赞，右键=方向下键跳过）"""
+        enabled = (state == 2)
+        if not enabled:
+            self._stop_mouse_hotkey_hook()
+            self.update_status("⏹️ 已关闭鼠标按键热键", "#FF69B4")
+            return
+
+        if not MOUSE_HOOK_AVAILABLE:
+            self.update_status("❌ 鼠标按键热键不可用：低层鼠标钩子初始化失败", "#f44336")
+            self.aux_like_mouse_hotkey_checkbox.blockSignals(True)
+            self.aux_like_mouse_hotkey_checkbox.setChecked(False)
+            self.aux_like_mouse_hotkey_checkbox.blockSignals(False)
+            return
+
+        try:
+            if self._mouse_hotkey_hook is None:
+                self._mouse_hotkey_hook = MouseButtonHotkeyHook(
+                    is_active=lambda: self._aux_like_active_flag and not self._aux_like_busy,
+                    on_trigger=self._on_mouse_hotkey_trigger,
+                )
+            if not self._mouse_hotkey_hook.start():
+                raise RuntimeError("钩子安装失败")
+            self.update_status("✅ 已启用鼠标按键热键：左键=点赞，右键=跳过（点击本窗口内正常）", "#FF69B4")
+        except Exception as e:
+            self._stop_mouse_hotkey_hook()
+            self.update_status(f"❌ 启用鼠标按键热键失败: {e}", "#f44336")
+            self.aux_like_mouse_hotkey_checkbox.blockSignals(True)
+            self.aux_like_mouse_hotkey_checkbox.setChecked(False)
+            self.aux_like_mouse_hotkey_checkbox.blockSignals(False)
+
+    def _on_mouse_hotkey_trigger(self, skip):
+        """由鼠标钩子线程调用：转成Qt信号丢给主线程执行（不要在这里做耗时操作）"""
+        try:
+            self.aux_like_triggered.emit(True, bool(skip))
+        except Exception:
+            pass
+
+    def _stop_mouse_hotkey_hook(self):
+        if self._mouse_hotkey_hook is not None:
+            try:
+                self._mouse_hotkey_hook.stop()
+            except Exception:
+                pass
+            self._mouse_hotkey_hook = None
+
     def _remove_keyboard_hotkeys(self):
         """移除所有已注册的keyboard全局热键"""
         try:
@@ -2754,6 +2999,8 @@ class WeChatAutomationGUI(QMainWindow):
         original_pause = pyautogui.PAUSE
         original_min_duration = getattr(pyautogui, 'MINIMUM_DURATION', 0.0)
         original_min_sleep = getattr(pyautogui, 'MINIMUM_SLEEP', 0.0)
+        # 动作期间把鼠标钩子挂起：期间所有点击都是我们自己模拟的，不能被当成新热键
+        self._aux_like_busy = True
 
         try:
             offset_x = self.aux_like_offset_x_spinbox.value()
@@ -2864,6 +3111,7 @@ class WeChatAutomationGUI(QMainWindow):
             pyautogui.PAUSE = original_pause
             pyautogui.MINIMUM_DURATION = original_min_duration
             pyautogui.MINIMUM_SLEEP = original_min_sleep
+            self._aux_like_busy = False
 
     def _find_next_dianzan(self, last_x, last_y, search_area_height=800, below_mid=False):
         """查找点赞按钮位置。
@@ -2965,6 +3213,7 @@ class WeChatAutomationGUI(QMainWindow):
         """窗口关闭时清理全局热键"""
         try:
             self._remove_keyboard_hotkeys()
+            self._stop_mouse_hotkey_hook()
 
             if self._aux_like_pynput_listener is not None:
                 try:
