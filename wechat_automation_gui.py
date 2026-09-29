@@ -2647,8 +2647,10 @@ class WeChatAutomationGUI(QMainWindow):
                 self.update_status(f"⚠️ keyboard热键注册失败: {e}", "#FF69B4")
 
             # 再尝试 pynput 备用监听
+            # 只在 keyboard 库注册失败时才启用：两个引擎同时监听时，
+            # keyboard 松开触发 + pynput 按下触发，按久一点就会触发两次动作。
             try:
-                if PYNPUT_HOTKEY_AVAILABLE:
+                if PYNPUT_HOTKEY_AVAILABLE and not keyboard_ok:
                     if self._aux_like_pynput_listener:
                         try:
                             self._aux_like_pynput_listener.stop()
@@ -2656,8 +2658,13 @@ class WeChatAutomationGUI(QMainWindow):
                             pass
                         self._aux_like_pynput_listener = None
 
+                    _pressed_keys = set()
+
                     def _on_press(key):
                         try:
+                            if key in _pressed_keys:
+                                return  # 忽略按住不放时的自动重复
+                            _pressed_keys.add(key)
                             if key == pynput_keyboard.Key.f10 or key == pynput_keyboard.Key.right:
                                 self.aux_like_triggered.emit(True, False)
                             elif key == pynput_keyboard.Key.down:
@@ -2665,7 +2672,12 @@ class WeChatAutomationGUI(QMainWindow):
                         except Exception:
                             pass
 
-                    self._aux_like_pynput_listener = pynput_keyboard.Listener(on_press=_on_press)
+                    def _on_release(key):
+                        _pressed_keys.discard(key)
+
+                    self._aux_like_pynput_listener = pynput_keyboard.Listener(
+                        on_press=_on_press, on_release=_on_release
+                    )
                     self._aux_like_pynput_listener.daemon = True
                     self._aux_like_pynput_listener.start()
                     self._aux_like_pynput_registered = True
@@ -2718,16 +2730,30 @@ class WeChatAutomationGUI(QMainWindow):
         self._aux_like_hotkey_ids = []
 
     def execute_aux_like_once(self, from_hotkey=False, skip=False):
-        """执行一次辅助点赞动作：点赞（点击->左移->点击->移回）或跳过，再 下滚 -> 定位下一个。
-        skip=True 时跳过点赞步骤，直接下滚并定位下一个点赞按钮。"""
+        """辅助点赞入口：整段动作期间独占执行。
+        注意：keyboard 引擎是「松开」触发、pynput 引擎是「按下」触发，
+        按久一点就会被触发两次；这里用非阻塞锁把重复触发直接丢掉，
+        避免两次动作并发导致鼠标坐标错乱、下滚量叠加。"""
         if from_hotkey and hasattr(self, 'aux_like_enable_checkbox') and not self.aux_like_enable_checkbox.isChecked():
             return
 
-        with self._aux_like_lock:
+        if not self._aux_like_lock.acquire(blocking=False):
+            return
+        try:
             now = time.time()
             if now - self._aux_like_last_trigger_time < 0.25:
                 return
             self._aux_like_last_trigger_time = now
+            self._execute_aux_like_body(from_hotkey, skip)
+        finally:
+            self._aux_like_lock.release()
+
+    def _execute_aux_like_body(self, from_hotkey=False, skip=False):
+        """执行一次辅助点赞动作：点赞（点击->左移->点击->移回）或跳过，再 下滚 -> 定位下一个。
+        skip=True 时跳过点赞步骤，直接下滚并定位下一个点赞按钮。"""
+        original_pause = pyautogui.PAUSE
+        original_min_duration = getattr(pyautogui, 'MINIMUM_DURATION', 0.0)
+        original_min_sleep = getattr(pyautogui, 'MINIMUM_SLEEP', 0.0)
 
         try:
             offset_x = self.aux_like_offset_x_spinbox.value()
@@ -2735,9 +2761,6 @@ class WeChatAutomationGUI(QMainWindow):
             delay_ms = self.aux_like_delay_spinbox.value()
 
             # 临时关闭PyAutoGUI全局延时，确保执行极快
-            original_pause = pyautogui.PAUSE
-            original_min_duration = getattr(pyautogui, 'MINIMUM_DURATION', 0.0)
-            original_min_sleep = getattr(pyautogui, 'MINIMUM_SLEEP', 0.0)
             pyautogui.PAUSE = 0
             pyautogui.MINIMUM_DURATION = 0
             pyautogui.MINIMUM_SLEEP = 0
@@ -2917,15 +2940,17 @@ class WeChatAutomationGUI(QMainWindow):
 
             if WIN32_AVAILABLE and win32api is not None:
                 delta = 120 * direction
-                # 分批发送滚轮tick，每批稍作停顿确保系统处理
-                batch = 100
+                # 分小批发送滚轮tick：一次性灌几百个tick会让微信朋友圈触发惯性甩动，
+                # 内容（图片）来不及加载时位置会被拉回，看起来像"向上翻页"。
+                # 小批+短间隔更接近真人连续滚动，总格数不变。
+                batch = 20
                 sent = 0
                 while sent < count:
                     chunk = min(batch, count - sent)
                     for _ in range(chunk):
                         win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
                     sent += chunk
-                    time.sleep(0.01)
+                    time.sleep(0.006)
             else:
                 # win32不可用时回退到pyautogui
                 pyautogui.scroll(-notches)
